@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alert Pipeline · Human Review — CCTV Theft Detection</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav class="topbar"></nav>
+<main>
+  <h1>🧑‍💼 Alert Pipeline · Human-in-the-Loop Review</h1>
+  <p class="lead">Stage 4 — every VLM-verified candidate lands here (alerted or
+    not). A human confirms or rejects each one before it counts: confirmations
+    become labeled theft clips, rejections become hard negatives for retraining
+    (<code>data/review/labels.jsonl</code> → <code>scripts/retrain_pipeline.sh</code>).</p>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="chips" id="chips"></div>
+
+  <div id="list"><p class="note">loading…</p></div>
+</main>
+
+<script src="/static/nav.js"></script>
+<script>
+const FILTERS = [
+  ["all", "All"],
+  ["pending", "Pending review"],
+  ["alerted", "🚨 Alerted"],
+  ["confirmed_theft", "Confirmed theft"],
+  ["false_positive", "False positive"],
+];
+let filter = "pending";
+let items = [];
+
+function counts() {
+  return {
+    total: items.length,
+    pending: items.filter(r => !r.human_label).length,
+    alerted: items.filter(r => r.alerted).length,
+    confirmed_theft: items.filter(r => r.human_label === "confirmed_theft").length,
+    false_positive: items.filter(r => r.human_label === "false_positive").length,
+  };
+}
+
+function renderStats() {
+  const c = counts();
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="n">${c.total}</div><div class="l">candidates</div></div>
+    <div class="stat"><div class="n">${c.pending}</div><div class="l">pending review</div></div>
+    <div class="stat"><div class="n">${c.alerted}</div><div class="l">alerts dispatched</div></div>
+    <div class="stat"><div class="n">${c.confirmed_theft}</div><div class="l">confirmed theft</div></div>
+    <div class="stat"><div class="n">${c.false_positive}</div><div class="l">false positives</div></div>`;
+  document.getElementById("chips").innerHTML = FILTERS.map(([id, label]) =>
+    `<button class="chip ${id === filter ? "active" : ""}"
+             onclick="setFilter('${id}')">${label}</button>`).join("");
+}
+
+function setFilter(f) { filter = f; render(); }
+
+function matches(r) {
+  if (filter === "all") return true;
+  if (filter === "pending") return !r.human_label;
+  if (filter === "alerted") return !!r.alerted;
+  return r.human_label === filter;
+}
+
+function render() {
+  renderStats();
+  const shown = items.filter(matches);
+  document.getElementById("list").innerHTML = shown.map(r => `
+    <div class="card review-card ${r.human_label ? "labeled" : ""}">
+      ${r.clip_url ? `<video src="${r.clip_url}" controls muted preload="metadata"></video>`
+                   : '<i class="note">no clip</i>'}
+      <div class="meta">
+        <b>${esc(r.camera_id)}</b> — ${esc(r.top_action)}
+        <span class="tag">score ${(r.score ?? 0).toFixed(2)}</span>
+        <span class="tag">VLM: ${esc(r.vlm_verdict)} ${(r.vlm_confidence ?? 0).toFixed(2)}</span>
+        <span class="tag ${r.alerted ? "bad" : ""}">${r.alerted ? "🚨 alerted" : "silent"}</span>
+        ${r.human_label ? `<span class="tag ok">👤 ${esc(r.human_label)}</span>` : ""}
+        <div class="desc">${esc(r.vlm_description || "")}</div>
+        <div class="note">event ${esc(r.event_id)} @ t=${(r.trigger_ts ?? 0).toFixed(0)}s</div>
+        <p>
+          <button class="primary" onclick="label('${esc(r.event_id)}','confirmed_theft')">
+            ✔ Confirm theft</button>
+          <button class="danger" onclick="label('${esc(r.event_id)}','false_positive')">
+            ✘ False positive</button>
+        </p>
+      </div>
+    </div>`).join("") ||
+    `<p class="note">${items.length ? "Nothing matches this filter."
+                                    : "No candidates yet — run the pipeline (python main.py) to generate events."}</p>`;
+}
+
+async function load() {
+  try { items = await apiGet("/api/reviews"); }
+  catch (e) {
+    document.getElementById("list").innerHTML =
+      `<p class="msg err">failed to load review queue: ${esc(e.message)}</p>`;
+    return;
+  }
+  render();
+}
+
+async function label(id, l) {
+  await apiSend(`/api/reviews/${encodeURIComponent(id)}/label`, "POST", { label: l });
+  load();
+}
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

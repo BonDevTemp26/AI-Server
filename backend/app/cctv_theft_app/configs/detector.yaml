@@ -1,0 +1,24 @@
+# Stage 1 — Per-frame detection & tracking (YOLO26-S + ByteTrack via Ultralytics)
+
+model: "rtdetr-l.pt"
+fallback_model: yolo11s.pt             # used if YOLO26 unavailable in installed ultralytics
+imgsz: 640                             # lower than 640 to keep live RTSP detection smooth on CPU/GPU-limited systems
+conf_threshold: 0.35
+iou_threshold: 0.55
+half: false                            # Set to false! fp16 inference on ROCm RDNA3 causes segfaults in PyTorch nightly
+tracker_config: configs/tracker.yaml   # ByteTrack parameters (Ultralytics format)
+
+# COCO classes forwarded to the pipeline (person + concealment-relevant objects)
+classes_of_interest:
+  0: person
+  24: backpack
+  26: handbag
+  28: suitcase
+
+# Gate Stage 2: only run the temporal model when at least this many people are
+# in frame (the single biggest compute saver on quiet cameras).
+min_persons_for_temporal: 1
+
+# Run YOLO every Nth frame to reduce jitter and lag on live streams while ByteTrack
+# keeps object IDs stable between detections.
+detect_every_n: 1

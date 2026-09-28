@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Monitor - Theft Detection Workflow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .workflow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .step-card {
+            padding: 25px;
+            border-radius: 16px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            position: relative;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .step-badge {
+            background: var(--accent-blue);
+            color: white;
+            font-weight: bold;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .step-title {
+            font-size: 1.3rem;
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .form-control {
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: white;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .save-btn-container {
+            margin-top: 30px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar glass-panel">
+            <div class="logo">
+                <h2>AI Monitor</h2>
+                <div class="logo-sub">Intelligent Surveillance</div>
+            </div>
+            <nav class="nav-menu">
+                <a href="index.html" class="nav-item">
+                    <span class="icon">🏠</span> Dashboard
+                </a>
+                <a href="shops.html" class="nav-item">
+                    <span class="icon">🏪</span> Shops & Cameras
+                </a>
+                <a href="models.html" class="nav-item">
+                    <span class="icon">🤖</span> Models
+                </a>
+                <a href="theft_detection.html" class="nav-item active">
+                    <span class="icon">🦹</span> Theft Detection
+                </a>
+                <a href="theft_videos.html" class="nav-item">
+                    <span class="icon">📼</span> Theft Videos
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header glass-panel">
+                <h1>Theft Detection Workflow</h1>
+                <span style="font-size:0.85rem; color:var(--text-secondary);">Configure the multi-step AI pipeline for theft identification</span>
+            </header>
+
+            <div class="workflow-container">
+                <!-- Step 1 -->
+                <div class="step-card">
+                    <div class="step-header">
+                        <div class="step-badge">1</div>
+                        <h2 class="step-title">Per-Frame Detection & Tracking</h2>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Object Detector</label>
+                            <select class="form-control" id="obj-detector">
+                                <option value="yolo8">YOLOv8</option>
+                                <option value="yolo11">YOLO11</option>
+                                <option value="rt-detr">RT-DETR</option>
+                                <option value="rf-detr">RF-DETR</option>
+                                <option value="d-fine">D-FINE</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tracker</label>
+                            <select class="form-control" id="tracker">
+                                <option value="bytetrack">ByteTrack</option>
+                                <option value="bot-sort">BoT-SORT</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="step-card">
+                    <div class="step-header">
+                        <div class="step-badge">2</div>
+                        <h2 class="step-title">Temporal Understanding</h2>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Action Recognition</label>
+                            <select class="form-control" id="action-recog">
+                                <option value="videomaev2">VideoMAEv2</option>
+                                <option value="slowfast">SlowFast</option>
+                                <option value="x3d">X3D</option>
+                                <option value="fine-tuned">Fine-tuned model</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Anomaly Detection</label>
+                            <select class="form-control" id="anomaly-det">
+                                <option value="disabled">Disabled</option>
+                                <option value="rtfm">RTFM</option>
+                                <option value="streamvad">StreamVAD</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="step-card">
+                    <div class="step-header">
+                        <div class="step-badge">3</div>
+                        <h2 class="step-title">VLM Verification</h2>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>VLM Model</label>
+                            <select class="form-control" id="vlm-model">
+                                <option value="qwen2.5-72b">Qwen2.5-VL 72B (hosted)</option>
+                                <option value="qwen3-8b">Qwen3-VL 8B (hosted)</option>
+                                <option value="qwen2.5-7b">Qwen2.5-VL 7B (local)</option>
+                                <option value="qwen2.5-3b">Qwen2.5-VL 3B (local, 4-bit)</option>
+                                <option value="smolvlm2-500m">SmolVLM2 500M Video (local CPU)</option>
+                                <option value="llava-onevision-7b">LLaVA-OneVision 7B (local)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="save-btn-container">
+                    <button class="btn-primary" onclick="saveWorkflow()">Save Workflow Configuration</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Simulate save
+        function saveWorkflow() {
+            const btn = document.querySelector('.btn-primary');
+            const originalText = btn.innerText;
+            btn.innerText = 'Saving...';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                btn.innerText = 'Saved Successfully ✅';
+                btn.style.background = '#10b981';
+                
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    btn.style.background = 'var(--accent-blue)';
+                }, 2000);
+            }, 800);
+        }
+    </script>
+</body>
+</html>

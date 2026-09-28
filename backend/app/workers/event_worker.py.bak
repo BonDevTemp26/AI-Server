@@ -1,0 +1,153 @@
+import threading
+import traceback
+import sys
+import os
+from pathlib import Path
+import time
+from datetime import datetime
+import shutil
+
+THEFT_APP_DIR = Path(__file__).resolve().parent.parent / "cctv_theft_app"
+if str(THEFT_APP_DIR) not in sys.path:
+    sys.path.insert(0, str(THEFT_APP_DIR))
+
+import yaml
+from app.database import SessionLocal
+from app.models.all_models import DetectionEvent, Camera, Shop
+
+class EventWorker(threading.Thread):
+    """
+    A one-shot worker that runs the AI pipeline and cleanly exits.
+    Used for Cloud API Mode.
+    """
+    def __init__(self, camera_id: int, clip_path: str = None, duration_s: int = 30):
+        super().__init__()
+        self.camera_id = camera_id
+        self.clip_path = clip_path # If provided, analyze this video file. Otherwise, use RTSP live stream.
+        self.duration_s = duration_s # Max runtime for live stream before stopping.
+        self.running = False
+        self.error_msg = None
+        self.orchestrator = None
+        
+    def extend_duration(self, additional_seconds: int):
+        self.duration_s += additional_seconds
+        if self.orchestrator and not self.clip_path:
+            old = self.orchestrator.runtime.get("max_runtime_s", 0)
+            self.orchestrator.runtime["max_runtime_s"] = old + additional_seconds
+            print(f"[EVENT-WORKER] Camera {self.camera_id} (theft) extended by {additional_seconds}s.", flush=True)
+
+    def run(self):
+        self.running = True
+        db = SessionLocal()
+        try:
+            camera = db.query(Camera).filter(Camera.id == self.camera_id).first()
+            if not camera:
+                self.error_msg = "Camera not found"
+                return
+
+            shop = db.query(Shop).filter(Shop.id == camera.shop_id).first()
+            shop_name = shop.name if shop else "Unknown"
+            
+            # NOTE: Do NOT use os.chdir() — it changes the global process cwd
+            # and breaks all other threads (HTTP handlers, other workers).
+            # THEFT_APP_DIR is already on sys.path so imports work fine.
+            from pipeline.orchestrator import PipelineOrchestrator
+
+            config_path = THEFT_APP_DIR / "configs" / "app.yaml"
+            with open(config_path, "r") as f:
+                cfg = yaml.safe_load(f)
+
+            # --- FIX: Resolve all relative paths to absolute using THEFT_APP_DIR ---
+            # The orchestrator reads component_configs paths relative to process cwd,
+            # so we convert them to absolute here to avoid needing os.chdir().
+            if "component_configs" in cfg:
+                for key, rel_path in cfg["component_configs"].items():
+                    abs_path = str(THEFT_APP_DIR / rel_path)
+                    cfg["component_configs"][key] = abs_path
+
+            # Also fix the tracker_config inside detector.yaml — we patch it after loading
+            # by overriding tracker_config path in orchestrator (handled via detector_cfg patch below)
+
+            if self.clip_path:
+                print(f"[EVENT-WORKER] Processing uploaded clip for Camera {self.camera_id}...", flush=True)
+                source_url = self.clip_path
+                # Do not loop, stop as soon as clip is done
+                cfg.setdefault("runtime", {})["max_runtime_s"] = 0
+            else:
+                print(f"[EVENT-WORKER] Trigger received! Opening live RTSP stream for {self.duration_s}s...", flush=True)
+                source_url = camera.rtsp_url
+                cfg.setdefault("runtime", {})["max_runtime_s"] = self.duration_s
+
+            cfg["cameras"] = [{
+                "id": f"cam_{self.camera_id}",
+                "source": source_url,
+                "loop": False
+            }]
+
+            # Ensure clip extraction works correctly inside AI-Server uploads
+            cfg.setdefault("paths", {})
+            for pkey, pval in cfg["paths"].items():
+                if not str(pval).startswith("/"):
+                    cfg["paths"][pkey] = str(THEFT_APP_DIR / pval)
+            cfg["paths"]["clips_dir"] = "/app/uploads/clips"
+            os.makedirs("/app/uploads/clips", exist_ok=True)
+
+            # Pass our cfg
+            self.orchestrator = PipelineOrchestrator(cfg)
+            
+            # Patch tracker_config in detector_cfg to be absolute
+            if getattr(self.orchestrator, "detector_cfg", None) and "tracker_config" in self.orchestrator.detector_cfg:
+                orig_tracker = self.orchestrator.detector_cfg["tracker_config"]
+                if not orig_tracker.startswith("/"):
+                    self.orchestrator.detector_cfg["tracker_config"] = str(THEFT_APP_DIR / orig_tracker)
+            
+            # Intercept alerts to update our backend DB
+            original_dispatch = self.orchestrator.alert_manager.dispatch
+            
+            def custom_dispatch(event, result, clip_path):
+                try:
+                    ev_db = SessionLocal()
+                    rel_video_path = f"/api/uploads/clips/{Path(clip_path).name}" if clip_path else None
+                    
+                    new_event = DetectionEvent(
+                        camera_id=self.camera_id,
+                        shop_id=camera.shop_id,
+                        shop_name=shop_name,
+                        camera_name=camera.name,
+                        detection_type="theft",
+                        confidence=result.confidence,
+                        metadata_={
+                            "video_path": rel_video_path,
+                            "verdict": result.verdict,
+                            "description": result.description,
+                            "vlm_content": result.description,
+                            "vlm_reject_score": result.confidence
+                        }
+                    )
+                    ev_db.add(new_event)
+                    ev_db.commit()
+                    ev_db.refresh(new_event)
+                    new_event.ended_at = datetime.utcnow()
+                    ev_db.commit()
+                    ev_db.close()
+                except Exception as e:
+                    print("Error saving event-driven theft event to DB", e)
+                original_dispatch(event, result, clip_path)
+                
+            self.orchestrator.alert_manager.dispatch = custom_dispatch
+            
+            # Run the orchestrator pipeline
+            self.orchestrator.run()
+        except Exception as e:
+            self.error_msg = str(e)
+            print(f"EventWorker {self.camera_id} crashed: {traceback.format_exc()}")
+        finally:
+            db.close()
+            self.running = False
+            
+            if self.clip_path and os.path.exists(self.clip_path):
+                try:
+                    os.remove(self.clip_path)
+                except:
+                    pass
+            print(f"[EVENT-WORKER] Finished processing for Camera {self.camera_id}. Shutting down.", flush=True)

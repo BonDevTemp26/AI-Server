@@ -1,0 +1,66 @@
+# Stage 2 — Temporal understanding.
+#
+# mode selects the implementation behind the TemporalModel interface
+# (temporal/base.py). All modes share the same sliding-window settings and the
+# same trigger/aggregation logic, so switching is a config-only change:
+#
+#   novelty    TEMPORARY — VideoMAEv2 (K710-distilled) as a frozen feature
+#              extractor + per-camera embedding-novelty score. Weak, unlabeled
+#              signal: it flags "behavior changed", not "theft". Run with a
+#              high threshold and rely on VLM verification until the
+#              fine-tuned model is ready.
+#   finetuned  YOUR MODEL — self-describing checkpoint produced by the
+#              training stack in Fine_tune_dev/ (training/train_videomae.py).
+#              This is the integration point for the fine-tuned model.
+#   mock       scripted scores, no GPU/weights — pipeline integration tests.
+
+mode: "novelty"
+
+window:                      # shared by every mode (must match training settings)
+  num_frames: 16
+  sampling_rate: 4           # window spans 16×4/25 ≈ 2.56 s
+  clip_fps: 25
+  input_size: 224
+  stride_s: 1.0              # classify once per second per camera
+
+backbone:                    # used by 'novelty' (and 'finetuned' re-uses the arch code)
+  arch: vit_base_patch16_224
+  checkpoint: ../Fine_tune_dev/models/checkpoints/vit_b_k710_dl_from_giant.pth
+  # Path to the fine-tuning stack containing temporal/videomae_model.py.
+  # The app loads the architecture from there — single source of truth.
+  training_stack_path: ../Fine_tune_dev
+
+finetuned:                   # ← drop-in point for your model when it is ready
+  checkpoint: ../Fine_tune_dev/models/checkpoints/videomaev2_theft_ft/best.pth
+  theft_class_weights:       # per-class contribution to the trigger score
+    concealment: 1.0
+    grab_and_run: 1.0
+    suspicious_handling: 0.6
+
+novelty:
+  ema_alpha: 0.05            # baseline adaptation speed (per camera)
+  scale: 4.0                 # maps cosine novelty → 0..1 score
+  warmup_windows: 10         # no scores until the baseline has seen this many windows
+
+rtfm:                        # RTFM-style anomaly head over backbone features
+  enabled: false
+  checkpoint: models/rtfm_head.pth
+  fusion_mode: max           # max | weighted — how to fuse with the action/novelty score
+  anomaly_weight: 0.4
+
+mock:
+  script: []                 # [[start_s, end_s, score], ...]; empty = low random noise
+
+trigger:                     # smoothing + hysteresis → CandidateEvent
+  ema_alpha: 0.6
+  #trigger_threshold: 0.70    # novelty mode: keep high (0.75+); finetuned: from eval sweep
+  #rearm_threshold: 0.40
+  #min_consecutive: 2
+  trigger_threshold: 0.40    # novelty mode: keep high (0.75+); finetuned: from eval sweep (LOWERED TO 0.40 FOR TESTING)
+  rearm_threshold: 0.20
+  min_consecutive: 1
+  cooldown_s: 30
+  clip_pre_s: 15             # snapshot window (README contract: T-15s → T+15s)
+  clip_post_s: 15
+action_recognition: "videomaev2"
+anomaly_detection: "streamvad"

@@ -1,0 +1,24 @@
+# ── Stage 2 (Temporal / VideoMAEv2) dependencies ─────────────────────────────
+# Python 3.10–3.12 recommended (torch + decord wheel coverage).
+# GPU install: follow https://pytorch.org/get-started/locally/ for your CUDA,
+# e.g.  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+
+torch>=2.3
+torchvision>=0.18
+numpy>=1.24
+pandas>=2.0
+PyYAML>=6.0
+tqdm>=4.66
+scikit-learn>=1.3
+tensorboard>=2.15
+opencv-python>=4.8          # use opencv-python-headless on servers
+huggingface_hub>=0.23       # pretrained checkpoint download
+
+# Video decoding (training/eval). temporal/video_io.py tries decord → PyAV → OpenCV,
+# so any one of the first two is enough; decord is fastest on x86.
+decord>=0.6.0; platform_machine == "x86_64"
+av>=12.0
+
+# ── Model export (optional; needed for temporal/export_videomae.py) ─────────
+onnx>=1.16
+onnxruntime>=1.18           # onnxruntime-gpu for CUDA/TensorRT execution providers

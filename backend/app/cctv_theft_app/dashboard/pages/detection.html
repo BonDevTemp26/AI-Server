@@ -1,0 +1,159 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Per-Frame Detection &amp; Tracking — CCTV Theft Detection</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav class="topbar"></nav>
+<main>
+  <h1>🔍 Per-Frame Detection &amp; Tracking</h1>
+  <p class="lead">Stage 1 — every frame goes through the object detector, and the
+    tracker keeps person identities stable across frames. Selections are written to
+    <code>configs/detector.yaml</code> / <code>configs/tracker.yaml</code> and apply
+    on the next pipeline start.</p>
+
+  <div class="card">
+    <h2>Models</h2>
+    <div class="row">
+      <div class="field">
+        <label for="detector">Object Detector</label>
+        <select id="detector" onchange="renderNotes()"></select>
+      </div>
+      <div class="field">
+        <label for="tracker">Tracker</label>
+        <select id="tracker" onchange="renderNotes()"></select>
+      </div>
+      <div class="field" style="flex:0; min-width:auto">
+        <button class="primary" id="saveBtn" onclick="save()">Save</button>
+      </div>
+    </div>
+    <div id="notes"></div>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Current runtime config</h2>
+    <table class="kv" id="current"></table>
+    <p class="note">Thresholds and class filters stay in the YAML files —
+      this page only switches models.</p>
+  </div>
+
+  <div class="card">
+    <h2>Live Preview</h2>
+    <div class="row">
+      <div class="field">
+        <label for="previewCam">Select Camera</label>
+        <select id="previewCam" onchange="startPreview()">
+          <option value="">-- select a camera --</option>
+        </select>
+      </div>
+    </div>
+    <div id="previewContainer" class="stream-grid" style="margin-top: 1rem;">
+      <p class="note">Select a camera above to start real-time detection preview.</p>
+    </div>
+  </div>
+</main>
+
+<script src="/static/nav.js"></script>
+<script>
+let cfg = null;
+
+function option(o, selected) {
+  return `<option value="${o.id}" ${o.id === selected ? "selected" : ""}>${esc(o.label)}</option>`;
+}
+
+function renderNotes() {
+  if (!cfg) return;
+  const det = cfg.options.detectors.find(d => d.id === document.getElementById("detector").value);
+  const trk = cfg.options.trackers.find(t => t.id === document.getElementById("tracker").value);
+  document.getElementById("notes").innerHTML = [det, trk].filter(Boolean).map(o => `
+    <p class="note"><b>${esc(o.label)}</b>
+      <span class="tag ${o.runtime === "ready" ? "ok" : "warn"}">
+        ${o.runtime === "ready" ? "runtime ready" : "needs adapter"}</span><br>
+      ${esc(o.note)}</p>`).join("");
+}
+
+function renderCurrent() {
+  const c = cfg.current;
+  document.getElementById("current").innerHTML = `
+    <tr><td>detector model (weights)</td><td><code>${esc(c.model)}</code></td></tr>
+    <tr><td>fallback model</td><td><code>${esc(c.fallback_model)}</code></td></tr>
+    <tr><td>input size / conf threshold</td><td>${esc(c.imgsz)} px · ${esc(c.conf_threshold)}</td></tr>
+    <tr><td>tracker</td><td><code>${esc(c.tracker_type)}</code></td></tr>
+    <tr><td>track buffer</td><td>${esc(c.track_buffer)} frames</td></tr>`;
+}
+
+async function loadCameras() {
+  try {
+    const streams = await apiGet("/api/streams");
+    const select = document.getElementById("previewCam");
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">-- select a camera --</option>' + 
+      streams.map(s => `<option value="${s.id}">${esc(s.id)}</option>`).join("");
+    if (streams.some(s => s.id === currentVal)) {
+      select.value = currentVal;
+    } else {
+      stopPreview();
+    }
+  } catch (e) {
+    console.error("Failed to load cameras", e);
+  }
+}
+
+function startPreview() {
+  const camId = document.getElementById("previewCam").value;
+  const container = document.getElementById("previewContainer");
+  if (!camId) {
+    stopPreview();
+    return;
+  }
+  
+  container.innerHTML = `
+    <div class="card stream-card">
+      <div class="head">
+        <div><b>${esc(camId)}</b> <span class="tag ok">detecting</span></div>
+        <div><button class="ghost" onclick="stopPreview()">Stop preview</button></div>
+      </div>
+      <img class="live" src="/stream/${encodeURIComponent(camId)}.mjpg?detect=true&t=${Date.now()}" alt="detection preview of ${esc(camId)}">
+    </div>`;
+}
+
+function stopPreview() {
+  document.getElementById("previewCam").value = "";
+  document.getElementById("previewContainer").innerHTML = '<p class="note">Select a camera above to start real-time detection preview.</p>';
+}
+
+async function load() {
+  cfg = await apiGet("/api/config/detection");
+  document.getElementById("detector").innerHTML =
+    cfg.options.detectors.map(o => option(o, cfg.detector)).join("") +
+    (cfg.detector === "custom" ? '<option value="custom" selected>Custom (from YAML)</option>' : "");
+  document.getElementById("tracker").innerHTML =
+    cfg.options.trackers.map(o => option(o, cfg.tracker)).join("");
+  renderNotes();
+  renderCurrent();
+  await loadCameras();
+}
+
+async function save() {
+  const msg = document.getElementById("msg");
+  const detector = document.getElementById("detector").value;
+  if (detector === "custom") return showMsg(msg, "pick a detector to overwrite the custom YAML value", "warn");
+  document.getElementById("saveBtn").disabled = true;
+  try {
+    const r = await apiSend("/api/config/detection", "POST",
+      { detector, tracker: document.getElementById("tracker").value });
+    showMsg(msg, r.warnings.length ? "Saved — " + r.warnings.join(" ") :
+      "Saved ✓ — restart main.py to apply.", r.warnings.length ? "warn" : "ok");
+    await load();
+  } catch (e) { showMsg(msg, e.message, "err"); }
+  finally { document.getElementById("saveBtn").disabled = false; }
+}
+
+load().catch(e => showMsg(document.getElementById("msg"), e.message, "err"));
+</script>
+</body>
+</html>

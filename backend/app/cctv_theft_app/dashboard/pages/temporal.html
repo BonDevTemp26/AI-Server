@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Temporal Understanding — CCTV Theft Detection</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav class="topbar"></nav>
+<main>
+  <h1>⏱️ Temporal Understanding</h1>
+  <p class="lead">Stage 2 — sliding 2.6&nbsp;s windows are scored for theft-like
+    behaviour; scores above the trigger threshold become candidate events.
+    Selections are written to <code>configs/temporal_model.yaml</code> and apply
+    on the next pipeline start.</p>
+
+  <div class="card">
+    <h2>Models</h2>
+    <div class="row">
+      <div class="field">
+        <label for="action">Action Recognition</label>
+        <select id="action" onchange="renderNotes()"></select>
+      </div>
+      <div class="field">
+        <label for="anomaly">Anomaly Detection</label>
+        <select id="anomaly" onchange="renderNotes()"></select>
+      </div>
+      <div class="field" style="flex:0; min-width:auto">
+        <button class="primary" id="saveBtn" onclick="save()">Save</button>
+      </div>
+    </div>
+    <div id="notes"></div>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Current runtime config</h2>
+    <table class="kv" id="current"></table>
+    <p class="note">The pipeline only talks to the <code>TemporalModel</code>
+      interface (<code>temporal/base.py</code>) — swapping models is a
+      config-only change once an adapter exists.</p>
+  </div>
+</main>
+
+<script src="/static/nav.js"></script>
+<script>
+let cfg = null;
+
+function option(o, selected) {
+  return `<option value="${o.id}" ${o.id === selected ? "selected" : ""}>${esc(o.label)}</option>`;
+}
+
+function ckpt(info) {
+  if (!info || !info.path) return '<span class="tag">not set</span>';
+  return `<code>${esc(info.path)}</code> ` +
+    (info.found ? '<span class="tag ok">found</span>'
+                : '<span class="tag bad">missing</span>');
+}
+
+function renderNotes() {
+  if (!cfg) return;
+  const act = cfg.options.action.find(o => o.id === document.getElementById("action").value);
+  const ano = cfg.options.anomaly.find(o => o.id === document.getElementById("anomaly").value);
+  document.getElementById("notes").innerHTML = [act, ano].filter(Boolean).map(o => `
+    <p class="note"><b>${esc(o.label)}</b>
+      <span class="tag ${o.runtime === "ready" ? "ok" : "warn"}">
+        ${o.runtime === "ready" ? "runtime ready" : "needs adapter"}</span><br>
+      ${esc(o.note)}</p>`).join("");
+}
+
+function renderCurrent() {
+  const c = cfg.current, w = c.window || {};
+  document.getElementById("current").innerHTML = `
+    <tr><td>pipeline mode</td><td><code>${esc(c.mode)}</code></td></tr>
+    <tr><td>window</td><td>${esc(w.num_frames)} frames × rate ${esc(w.sampling_rate)}
+        @ ${esc(w.clip_fps)} fps · stride ${esc(w.stride_s)} s</td></tr>
+    <tr><td>trigger threshold</td><td>${esc(c.trigger_threshold)}</td></tr>
+    <tr><td>backbone checkpoint (VideoMAEv2)</td><td>${ckpt(c.backbone_checkpoint)}</td></tr>
+    <tr><td>fine-tuned checkpoint</td><td>${ckpt(c.finetuned_checkpoint)}</td></tr>
+    <tr><td>RTFM head</td><td>${c.rtfm_enabled ? "enabled" : "disabled"} ·
+        ${ckpt(c.rtfm_checkpoint)}</td></tr>`;
+}
+
+async function load() {
+  cfg = await apiGet("/api/config/temporal");
+  document.getElementById("action").innerHTML =
+    cfg.options.action.map(o => option(o, cfg.action)).join("");
+  document.getElementById("anomaly").innerHTML =
+    cfg.options.anomaly.map(o => option(o, cfg.anomaly)).join("");
+  renderNotes();
+  renderCurrent();
+}
+
+async function save() {
+  const msg = document.getElementById("msg");
+  document.getElementById("saveBtn").disabled = true;
+  try {
+    const r = await apiSend("/api/config/temporal", "POST", {
+      action: document.getElementById("action").value,
+      anomaly: document.getElementById("anomaly").value,
+    });
+    showMsg(msg, r.warnings.length ? "Saved — " + r.warnings.join(" ") :
+      "Saved ✓ — restart main.py to apply.", r.warnings.length ? "warn" : "ok");
+    await load();
+  } catch (e) { showMsg(msg, e.message, "err"); }
+  finally { document.getElementById("saveBtn").disabled = false; }
+}
+
+load().catch(e => showMsg(document.getElementById("msg"), e.message, "err"));
+</script>
+</body>
+</html>

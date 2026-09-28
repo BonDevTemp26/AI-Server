@@ -1,0 +1,31 @@
+# Stage 4 — Alert dispatch. Free channels only; credentials come from .env.
+# Every alert is always appended to paths.alerts_log (JSONL) and queued for
+# the human review dashboard regardless of which channels are enabled.
+
+channels:
+  console:
+    enabled: true                       # log line per alert (always safe)
+
+  mqtt:                                 # free: local mosquitto / EMQX (docker-compose.yml)
+    enabled: false
+    host: localhost
+    port: 1883
+    topic: cctv/theft/alerts
+    username_env: MQTT_USERNAME         # optional
+    password_env: MQTT_PASSWORD
+    qos: 1
+
+  telegram:                             # free Bot API; supports the clip as video attachment
+    enabled: false
+    token_env: TELEGRAM_BOT_TOKEN
+    chat_id_env: TELEGRAM_CHAT_ID
+    attach_clip: true
+
+  webhook:                              # free: Slack / Discord / Teams incoming webhooks
+    enabled: false
+    url_env: ALERT_WEBHOOK_URL
+    style: slack                        # slack | discord | generic (raw JSON POST)
+
+# Paid channels from the architecture doc (FCM push, Twilio SMS/WhatsApp) are
+# intentionally not implemented — add them as new modules in alerts/ following
+# the same Notifier interface (see alerts/alert_manager.py).

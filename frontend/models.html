@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Monitor - Model Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* ── Buttons ───────────────────────────────────── */
+        .btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.25s;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, .1);
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-danger {
+            background: var(--accent-red);
+            border: none;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* ── Upload Card ───────────────────────────────── */
+        .upload-card {
+            padding: 30px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+        }
+
+        .upload-card h2 {
+            margin: 0 0 20px;
+            font-size: 1.2rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .form-control {
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, .25);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: border-color .2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        /* ── Drop Zone ─────────────────────────────────── */
+        .drop-zone {
+            border: 2px dashed var(--glass-border);
+            border-radius: 10px;
+            padding: 28px;
+            text-align: center;
+            cursor: pointer;
+            transition: all .25s;
+            margin-top: 15px;
+        }
+
+        .drop-zone.drag-over,
+        .drop-zone:hover {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, .07);
+        }
+
+        .drop-zone .dz-icon {
+            font-size: 2.2rem;
+            margin-bottom: 6px;
+        }
+
+        .drop-zone .dz-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .drop-zone .dz-file {
+            font-size: 0.85rem;
+            color: var(--accent-green);
+            margin-top: 6px;
+            font-weight: 600;
+        }
+
+        /* ── Progress ──────────────────────────────────── */
+        .progress-wrap {
+            margin-top: 16px;
+            display: none;
+        }
+
+        .progress-bar-bg {
+            background: rgba(0, 0, 0, .3);
+            border-radius: 8px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-blue), #60a5fa);
+            border-radius: 8px;
+            width: 0;
+            transition: width .3s ease;
+        }
+
+        .progress-label {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        /* ── Validation Banner ─────────────────────────── */
+        .validation-banner {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .validation-banner.validating {
+            background: rgba(99, 102, 241, .15);
+            border: 1px solid rgba(99, 102, 241, .4);
+            color: #a5b4fc;
+        }
+
+        .validation-banner.success {
+            background: rgba(16, 185, 129, .15);
+            border: 1px solid rgba(16, 185, 129, .4);
+            color: #6ee7b7;
+        }
+
+        .validation-banner.failed {
+            background: rgba(239, 68, 68, .15);
+            border: 1px solid rgba(239, 68, 68, .4);
+            color: #fca5a5;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ── Model List ────────────────────────────────── */
+        .models-section h2 {
+            font-size: 1.1rem;
+            margin: 0 0 15px;
+        }
+
+        .model-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .model-table th {
+            text-align: left;
+            padding: 10px 14px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--glass-border);
+            font-weight: 500;
+        }
+
+        .model-table td {
+            padding: 12px 14px;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, .04);
+            vertical-align: middle;
+        }
+
+        .model-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .model-table tr:hover td {
+            background: rgba(255, 255, 255, .03);
+        }
+
+        /* ── Status Badges ─────────────────────────────── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .badge-pending {
+            background: rgba(107, 114, 128, .2);
+            color: #9ca3af;
+            border: 1px solid rgba(107, 114, 128, .3);
+        }
+
+        .badge-validating {
+            background: rgba(99, 102, 241, .2);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, .3);
+        }
+
+        .badge-active {
+            background: rgba(16, 185, 129, .2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, .3);
+        }
+
+        .badge-failed {
+            background: rgba(239, 68, 68, .2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, .3);
+        }
+
+        .badge-inactive {
+            background: rgba(245, 158, 11, .15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, .3);
+        }
+
+        .badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .badge-active .badge-dot {
+            animation: pulse-dot 1.5s infinite;
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        /* ── Type Chip ─────────────────────────────────── */
+        .type-chip {
+            display: inline-block;
+            padding: 2px 9px;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            background: rgba(59, 130, 246, .15);
+            color: #93c5fd;
+            border: 1px solid rgba(59, 130, 246, .25);
+        }
+
+        /* ── Action Btns ───────────────────────────────── */
+        .action-btns {
+            display: flex;
+            gap: 6px;
+        }
+
+        .action-btns .btn {
+            padding: 4px 10px;
+            font-size: 0.8rem;
+        }
+
+        /* ── Empty State ───────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .empty-state .es-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+
+        <!-- Sidebar -->
+        <aside class="sidebar glass-panel">
+            <div class="logo">
+                <h2>AI Monitor</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="index.html" class="nav-item"><span class="icon">🏠</span> Dashboard</a>
+                <a href="shops.html" class="nav-item"><span class="icon">🏪</span> Shops & Cameras</a>
+                <a href="models.html" class="nav-item active"><span class="icon">🤖</span> Models</a>
+                <a href="theft_detection.html" class="nav-item"><span class="icon">🦹</span> Theft Detection</a>
+                <a href="theft_videos.html" class="nav-item"><span class="icon">📼</span> Theft Videos</a>
+            </nav>
+        </aside>
+
+        <!-- Main -->
+        <main class="main-content">
+            <header class="top-header glass-panel">
+                <h1>AI Model Manager</h1>
+                <span style="font-size:0.85rem; color:var(--text-secondary);">Upload &amp; manage YOLO detection
+                    models</span>
+            </header>
+
+            <!-- ── Upload Card ─────────────────────────────── -->
+            <div class="upload-card glass-panel">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                    <h2 style="margin:0;">⬆️ Upload New Model</h2>
+                    <button class="btn" onclick="openTypesModal()">🏷️ Manage Types</button>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Model Name</label>
+                        <input type="text" id="model-name" class="form-control" placeholder="e.g. Fire Detector v2">
+                    </div>
+                    <div class="form-group">
+                        <label>Model Type</label>
+                        <select id="model-type" class="form-control">
+                            <option value="">Loading types…</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Drop Zone -->
+                <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+                    ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+                    <div class="dz-icon">📦</div>
+                    <div class="dz-text">Drag &amp; drop your <strong>.pt</strong> file here, or click to browse</div>
+                    <div class="dz-file" id="dz-file-name"></div>
+                </div>
+                <input type="file" id="file-input" accept=".pt" style="display:none" onchange="handleFileSelect(event)">
+
+                <!-- Progress -->
+                <div class="progress-wrap" id="progress-wrap">
+                    <div class="progress-label" id="progress-label">Uploading...</div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+
+                <!-- Validation Banner -->
+                <div class="validation-banner" id="validation-banner">
+                    <div class="spinner" id="v-spinner"></div>
+                    <span id="v-message">Validating model…</span>
+                </div>
+
+                <button class="btn btn-primary" style="margin-top:18px; width:100%;" onclick="uploadModel()"
+                    id="upload-btn">
+                    Upload & Validate
+                </button>
+            </div>
+
+
+
+            <!-- ── Model List ──────────────────────────────── -->
+            <div class="models-section glass-panel" style="padding:25px; border-radius:16px;">
+                <h2>📋 All Models</h2>
+
+                <div class="search-bar">
+                    <div class="search-input-wrap">
+                        <span class="search-icon">🔎</span>
+                        <input type="text" class="search-input" id="model-search" placeholder="Search models..."
+                            oninput="renderModelTable()">
+                    </div>
+                    <button class="filter-chip active" data-status="all"
+                        onclick="setStatusFilter('all', this)">All</button>
+                    <button class="filter-chip" data-status="active"
+                        onclick="setStatusFilter('active', this)">Active</button>
+                    <button class="filter-chip" data-status="pending"
+                        onclick="setStatusFilter('pending', this)">Pending</button>
+                    <button class="filter-chip" data-status="validating"
+                        onclick="setStatusFilter('validating', this)">Validating</button>
+                    <button class="filter-chip" data-status="failed"
+                        onclick="setStatusFilter('failed', this)">Failed</button>
+                    <button class="filter-chip" data-status="inactive"
+                        onclick="setStatusFilter('inactive', this)">Inactive</button>
+                </div>
+
+                <div id="model-list-container">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Model Types Modal -->
+    <div id="types-modal" class="modal">
+        <div class="modal-content glass-panel" style="max-width: 800px; width: 90%;">
+            <div class="modal-header">
+                <h2 style="margin:0;">🏷️ Manage Model Types</h2>
+                <button class="btn" style="padding: 4px 10px;" onclick="closeTypesModal()">✕</button>
+            </div>
+
+            <!-- Add new type form -->
+            <div style="display:flex; gap:10px; margin-bottom:18px;">
+                <input type="text" id="new-type-name" class="form-control" placeholder="Internal key (e.g. yolo_crowd)"
+                    style="flex:1;">
+                <input type="text" id="new-type-display" class="form-control"
+                    placeholder="Display name (e.g. Crowd Detection)" style="flex:1;">
+                <button class="btn btn-primary" onclick="addModelType()" style="white-space:nowrap;">+ Add Type</button>
+            </div>
+
+            <!-- Types table -->
+            <div id="model-types-container"
+                style="max-height: 600px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <p style="color:var(--text-secondary); text-align:center; padding:20px;">Loading…</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/ui.js"></script>
+    <script src="js/models.js?v=6"></script>
+</body>
+
+</html>

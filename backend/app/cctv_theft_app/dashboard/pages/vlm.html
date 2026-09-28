@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VLM Verification — CCTV Theft Detection</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav class="topbar"></nav>
+<main>
+  <h1>🧠 VLM Verification</h1>
+  <p class="lead">Stage 3 — candidate clips are described and judged by an
+    open-source vision-language model before any alert goes out. The selection is
+    written to <code>configs/vlm_verifier.yaml</code> and applies on the next
+    pipeline start.</p>
+
+  <div class="card">
+    <h2>Model</h2>
+    <div class="row">
+      <div class="field">
+        <label for="model">VLM Model</label>
+        <select id="model" onchange="renderNotes()"></select>
+      </div>
+      <div class="field" style="flex:0; min-width:auto">
+        <button class="primary" id="saveBtn" onclick="save()">Save</button>
+      </div>
+    </div>
+    <div id="notes"></div>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Current runtime config</h2>
+    <table class="kv" id="current"></table>
+    <p class="note">The prompt, verdict parsing and alert policy are shared by
+      every backend — swapping models never changes the contract.</p>
+  </div>
+</main>
+
+<script src="/static/nav.js"></script>
+<script>
+let cfg = null;
+
+function renderNotes() {
+  if (!cfg) return;
+  const o = cfg.options.find(o => o.id === document.getElementById("model").value);
+  document.getElementById("notes").innerHTML = !o ? "" : `
+    <p class="note"><b>${esc(o.label)}</b>
+      <span class="tag">${o.backend === "hf_local" ? "local (hf_local)" : "hosted (openai_compatible)"}</span><br>
+      ${esc(o.note)}</p>`;
+}
+
+function renderCurrent() {
+  const c = cfg.current, p = c.policy || {};
+  document.getElementById("current").innerHTML = `
+    <tr><td>backend</td><td><code>${esc(c.backend)}</code></td></tr>
+    <tr><td>hosted model</td><td><code>${esc(c.hosted_model)}</code></td></tr>
+    <tr><td>hosted endpoint</td><td><code>${esc(c.endpoint)}</code></td></tr>
+    <tr><td>local model</td><td><code>${esc(c.local_model_id)}</code>
+        (device: ${esc(c.local_device || "cpu")})</td></tr>
+    <tr><td>alert policy</td><td>alert on <code>${esc((p.alert_on || []).join(", "))}</code>
+        · min confidence ${esc(p.min_confidence)}
+        · on API failure → <code>${esc(p.on_api_failure)}</code></td></tr>`;
+}
+
+async function load() {
+  cfg = await apiGet("/api/config/vlm");
+  document.getElementById("model").innerHTML =
+    cfg.options.map(o =>
+      `<option value="${o.id}" ${o.id === cfg.model ? "selected" : ""}>${esc(o.label)}</option>`
+    ).join("") +
+    (cfg.model === "custom" ? '<option value="custom" selected>Custom (from YAML)</option>' : "");
+  renderNotes();
+  renderCurrent();
+}
+
+async function save() {
+  const msg = document.getElementById("msg");
+  const model = document.getElementById("model").value;
+  if (model === "custom") return showMsg(msg, "pick a model to overwrite the custom YAML value", "warn");
+  document.getElementById("saveBtn").disabled = true;
+  try {
+    const r = await apiSend("/api/config/vlm", "POST", { model });
+    showMsg(msg, "Saved ✓ — restart main.py to apply. " + r.warnings.join(" "), "ok");
+    await load();
+  } catch (e) { showMsg(msg, e.message, "err"); }
+  finally { document.getElementById("saveBtn").disabled = false; }
+}
+
+load().catch(e => showMsg(document.getElementById("msg"), e.message, "err"));
+</script>
+</body>
+</html>

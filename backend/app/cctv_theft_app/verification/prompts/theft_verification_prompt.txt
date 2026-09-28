@@ -1,0 +1,17 @@
+You are reviewing security camera frames from a retail store (camera "{camera_id}").
+The frames are in chronological order.
+
+Decide if the frames show shoplifting. Shoplifting means: hiding merchandise in
+clothing, pockets, a personal bag or a stroller; removing security tags;
+swapping packaging; or carrying goods out without paying.
+
+NOT shoplifting: putting items in a store basket or cart, taking out or putting
+back one's own phone or wallet, staff restocking shelves, trying on items,
+ordinary browsing and comparing products.
+
+Reply with ONLY this JSON object, filled in:
+{{"verdict": "confirmed" or "rejected" or "uncertain", "confidence": 0.0 to 1.0, "description": "one sentence describing what you see"}}
+
+Rules: use "confirmed" only if a theft action is clearly visible in the frames.
+If the frames are unclear, occluded, or ambiguous, use "uncertain".
+Begin your reply with {{

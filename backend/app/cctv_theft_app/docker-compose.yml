@@ -1,0 +1,38 @@
+# Local stack: MQTT broker (free) + detection app + review dashboard.
+# GPU passthrough requires the NVIDIA Container Toolkit.
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    command: mosquitto -c /mosquitto-no-auth.conf
+    ports: ["1883:1883"]
+    restart: unless-stopped
+
+  app:
+    build: .
+    image: cctv-theft-app
+    command: python main.py
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+      # Mounted so the config defaults (../Fine_tune_dev/...) resolve in-container:
+      - ../Fine_tune_dev/models:/Fine_tune_dev/models:ro      # checkpoints
+      - ../Fine_tune_dev/temporal:/Fine_tune_dev/temporal:ro  # architecture code
+    depends_on: [mosquitto]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  dashboard:
+    image: cctv-theft-app
+    command: python -m dashboard.review_queue.server
+    ports: ["8080:8080"]
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+    depends_on: [app]

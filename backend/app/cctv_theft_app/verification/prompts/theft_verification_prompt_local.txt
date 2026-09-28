@@ -1,0 +1,11 @@
+These are frames from retail security camera "{camera_id}", in time order.
+Watch what the people do with merchandise.
+
+Shoplifting: hiding merchandise in clothing, pockets, a personal bag or a
+stroller; removing security tags; carrying goods out without paying.
+NOT shoplifting: putting items in a store basket or cart, using one's own
+phone or wallet, staff restocking shelves, browsing and comparing products.
+
+Give your verdict as one word — confirmed (theft is clearly visible),
+rejected (clearly normal activity), or uncertain (unclear or ambiguous) —
+then describe in one short sentence what you actually see.

@@ -1,0 +1,40 @@
+# --- secrets ---
+.env
+*.env
+
+# --- python ---
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+env/
+
+# --- uploaded files / models (large, user-specific) ---
+backend/uploads/*
+!backend/uploads/.gitkeep
+*.pt
+*.pth
+*.onnx
+
+# --- logs ---
+*.log
+
+# --- os junk ---
+.DS_Store
+Thumbs.db
+
+# --- editor junk ---
+.vscode/
+.idea/
+
+# --- node (if any frontend build tools added later) ---
+node_modules/
+
+# Generated data and large files
+backend/app/cctv_theft_app/data/clips/
+backend/app/cctv_theft_app/data/alerts/
+backend/app/cctv_theft_app/data/review/
+backend/app/cctv_theft_app/videomaev2.onnx.data
+backend/surveillance.db
+.env

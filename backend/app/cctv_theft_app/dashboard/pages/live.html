@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Streaming — CCTV Theft Detection</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav class="topbar"></nav>
+<main>
+  <h1>📡 Live Streaming</h1>
+  <p class="lead">Add camera sources and watch them live. Cameras are saved to
+    <code>configs/app.yaml → cameras:</code>, so the detection pipeline
+    (<code>python main.py</code>) picks them up on its next start.</p>
+
+  <div class="card">
+    <h2>Add a stream</h2>
+    <div class="row">
+      <div class="field" style="flex:2">
+        <label for="src">Stream URL — <code>rtsp://user:pass@host:554/stream1</code>,
+          <code>webcam:0</code> or a video file path</label>
+        <input id="src" placeholder="rtsp://user:pass@camera-ip:554/stream1">
+      </div>
+      <div class="field" style="flex:0; min-width:140px">
+        <label for="camid">Camera id (optional)</label>
+        <input id="camid" placeholder="auto">
+      </div>
+      <div class="field" style="flex:0; min-width:auto">
+        <button class="primary" id="addBtn" onclick="addStream()">Add stream</button>
+      </div>
+    </div>
+    <p class="note">RTSP tips: quote special characters in passwords
+      (<code>@</code> → <code>%40</code>); the app uses TCP transport automatically.
+      404 → wrong stream path, 401 → wrong credentials.</p>
+    <div id="addMsg" class="msg"></div>
+  </div>
+
+  <div id="streams" class="stream-grid"><p class="note">loading…</p></div>
+</main>
+
+<script src="/static/nav.js"></script>
+<script>
+const playing = new Set();   // camera ids with an open MJPEG preview
+
+async function load() {
+  let items;
+  try { items = await apiGet("/api/streams"); }
+  catch (e) {
+    document.getElementById("streams").innerHTML =
+      `<p class="msg err">failed to load streams: ${esc(e.message)}</p>`;
+    return;
+  }
+  for (const id of [...playing]) if (!items.some(s => s.id === id)) playing.delete(id);
+  document.getElementById("streams").innerHTML = items.map(s => `
+    <div class="card stream-card">
+      <div class="head">
+        <div><b>${esc(s.id)}</b>
+          <span class="tag ${s.live ? "ok" : ""}">${s.live ? "live" : "idle"}</span>
+          ${s.status && s.status.startsWith("error") ? `<span class="tag bad">${esc(s.status)}</span>` : ""}
+        </div>
+        <div>
+          ${playing.has(s.id)
+            ? `<button class="ghost" onclick="stopView('${esc(s.id)}')">Stop preview</button>`
+            : `<button class="primary" onclick="startView('${esc(s.id)}')">▶ Preview</button>`}
+          <button class="danger" onclick="removeStream('${esc(s.id)}')">Remove</button>
+        </div>
+      </div>
+      <div class="src">${esc(s.source)}</div>
+      ${playing.has(s.id)
+        ? `<img class="live" src="/stream/${encodeURIComponent(s.id)}.mjpg?t=${Date.now()}"
+               alt="live view of ${esc(s.id)}">`
+        : ""}
+    </div>`).join("") ||
+    '<p class="note">No cameras configured yet — add one above.</p>';
+}
+
+function startView(id) { playing.add(id); load(); }
+function stopView(id) { playing.delete(id); load(); }
+
+async function addStream() {
+  const msg = document.getElementById("addMsg");
+  const source = document.getElementById("src").value.trim();
+  const id = document.getElementById("camid").value.trim();
+  if (!source) return showMsg(msg, "enter a stream URL first", "err");
+  document.getElementById("addBtn").disabled = true;
+  try {
+    const r = await apiSend("/api/streams", "POST", { source, id: id || null });
+    showMsg(msg, `camera '${r.id}' added to configs/app.yaml`, "ok");
+    document.getElementById("src").value = "";
+    document.getElementById("camid").value = "";
+    playing.add(r.id);               // start previewing the new stream right away
+    await load();
+  } catch (e) { showMsg(msg, e.message, "err"); }
+  finally { document.getElementById("addBtn").disabled = false; }
+}
+
+async function removeStream(id) {
+  if (!confirm(`Remove camera '${id}' from configs/app.yaml?`)) return;
+  playing.delete(id);
+  try { await apiSend(`/api/streams/${encodeURIComponent(id)}`, "DELETE"); }
+  catch (e) { alert(e.message); }
+  load();
+}
+
+load();
+setInterval(() => { if (!playing.size) load(); }, 10000);
+</script>
+</body>
+</html>

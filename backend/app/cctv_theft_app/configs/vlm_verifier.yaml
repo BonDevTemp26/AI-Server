@@ -1,0 +1,72 @@
+# Stage 3 — VLM verification with free Hugging Face models.
+#
+# Pick how the model runs with `backend:` — the prompt, verdict parsing, and
+# alert policy are identical either way:
+#
+#   openai_compatible  HOSTED (default): Hugging Face Inference Providers
+#                      router. Free monthly inference credits per HF account;
+#                      needs HF_TOKEN in .env (huggingface.co/settings/tokens).
+#                      The same client also works with OpenRouter's free tier
+#                      or a self-hosted vLLM server — see alternatives below.
+#   hf_local           FULLY LOCAL & UNLIMITED: downloads an open-weight VLM
+#                      from the Hub and runs it in-process (no key, no quota).
+#                      Requires:  pip install 'transformers>=4.49' accelerate
+#   mock               auto-confirm — pipeline plumbing tests.
+
+# backend: "openai_compatible"
+backend: "mock"
+
+# ── hosted (openai_compatible) ────────────────────────────────────────────────
+endpoint: https://router.huggingface.co/v1/chat/completions
+model: "Qwen/Qwen2.5-VL-72B-Instruct"
+api_key_env: HF_TOKEN
+# Alternatives (same backend, change these three keys):
+#   OpenRouter free tier: https://openrouter.ai/api/v1/chat/completions
+#                         model: qwen/qwen2.5-vl-32b-instruct:free   key: VLM_API_KEY
+# Other provider-served HF models: Qwen/Qwen3-VL-8B-Instruct (lighter/newer).
+# Check availability: https://huggingface.co/api/models/<id>?expand=inferenceProviderMapping
+#   Self-hosted vLLM:     http://localhost:8000/v1/chat/completions  (no key)
+timeout_s: 120
+max_retries: 2
+
+# ── local (hf_local) ──────────────────────────────────────────────────────────
+local:
+  # Video-tuned 500M model — small enough to run on CPU in ~1-2 min per clip.
+  # If its verdicts stay weak/uncertain, the next step up on CPU is
+  # HuggingFaceTB/SmolVLM2-2.2B-Instruct (needs ~9 GB free RAM, ~3-5 min/clip).
+  model_id: "llava-hf/llava-onevision-qwen2-7b-ov-hf"
+  # device: cpu is the default in code. On a ≤4 GB GPU keep it: Stages 1–2
+  # (YOLO + VideoMAEv2) already fill VRAM, and Stage 3 runs off the live hot
+  # path so CPU latency is fine. Use cuda:0 only on a GPU with spare memory.
+  device: cpu
+  # Local frame budget (overrides the shared max_frames/frame_max_side below).
+  # SmolVLM tiles each frame into many patches, so keep these modest to stay
+  # under the model's 8k context — 4 frames @ 512px is plenty for a verdict.
+  max_frames: 4
+  frame_max_side: 512
+  quantize_4bit: false
+  max_new_tokens: 120       # a verdict + one sentence; keeps CPU latency down
+  # Small models parrot JSON schemas shown in prompts, so the local backend
+  # uses a schema-free prompt; the JSON shape is enforced by response priming.
+  prompt_file: verification/prompts/theft_verification_prompt_local.txt
+  # Tiny models don't produce meaningful confidence numbers — when the reply
+  # doesn't state one, use this instead (≥ policy.min_confidence so a clear
+  # 'confirmed' from the local model can actually alert).
+  fixed_confidence: 0.65
+  # Stronger options as GPU budget grows (any image-text-to-text Hub model works,
+  # e.g. LLaVA-OneVision, InternVL, Qwen2.5-VL). Set device: cuda:0 to use them:
+  #   Qwen/Qwen2.5-VL-3B-Instruct   + quantize_4bit: true   (~3 GB)
+  #   Qwen/Qwen2.5-VL-7B-Instruct                           (16 GB+)
+
+# ── shared ────────────────────────────────────────────────────────────────────
+# Frames sampled from the candidate clip (hosted HF models usually limit this to 5
+# images max; keeps hosted token usage low and local inference fast). 
+# Single-image-only models: set max_frames: 1.
+max_frames: 5
+frame_max_side: 768
+prompt_file: verification/prompts/theft_verification_prompt.txt
+
+policy:
+  alert_on: [confirmed, rejected, uncertain] # (Testing) Alert on everything to see all videos
+  min_confidence: 0.6           # 'confirmed' below this downgrades to 'uncertain'
+  on_api_failure: uncertain     # verdict when the VLM errors (fail-open to review queue)

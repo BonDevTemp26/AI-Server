@@ -1,0 +1,18 @@
+# ByteTrack configuration (Ultralytics tracker format).
+# Passed to model.track(tracker=...). Tuned for CCTV: people linger, so keep
+# lost tracks alive longer than the sports-video defaults.
+
+tracker_type: "botsort"
+track_high_thresh: 0.5     # first-association threshold
+track_low_thresh: 0.1      # second association (recovers occluded, low-conf people)
+new_track_thresh: 0.6      # min confidence to spawn a new track id
+track_buffer: 90           # frames to keep lost tracks (~3.5 s @ 25 fps)
+match_thresh: 0.8          # IoU matching threshold
+fuse_score: true
+
+# BoT-SORT extras (ignored while tracker_type is bytetrack)
+gmc_method: "sparseOptFlow"
+proximity_thresh: 0.5
+appearance_thresh: 0.25
+with_reid: false
+model: "osnet_x0_25_msmt17.pt"

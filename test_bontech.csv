@@ -1,0 +1,11 @@
+shop_name,display_name,rtsp_url,motion_enabled,human_enabled
+Bon Tech Shop,counter,rtsp://bontech:Paris2026%40@212.114.23.247:554/cam/realmonitor?channel=1&subtype=1,no,no
+Bon Tech Shop,Out side,rtsp://bontech:Paris2026%40@212.114.23.247:554/cam/realmonitor?channel=2&subtype=1,no,no
+Bon Tech Shop,Store,rtsp://bontech:Paris2026%40@212.114.23.247:554/cam/realmonitor?channel=3&subtype=1,no,no
+Bon Tech Shop,Right Counter Zoom,rtsp://bontech:Paris2026%40@212.114.23.247:554/cam/realmonitor?channel=4&subtype=1,no,no
+Bon Tech Shop,Counter 2,rtsp://bontech:Paris2026%40@212.114.23.247:554/cam/realmonitor?channel=5&subtype=1,no,no
+Bon Tech Shop,Customer counter,rtsp://bontech:Paris2026%40@212.114.23.247:554/cam/realmonitor?channel=6&subtype=1,no,no
+Bon Tech Shop,Entarence,rtsp://bontech:Paris2026%40@212.114.23.247:554/cam/realmonitor?channel=7&subtype=1,no,no
+Bon Tech Shop,Locker area,rtsp://bontech:Paris2026%40@212.114.23.247:554/cam/realmonitor?channel=8&subtype=1,no,no
+Bon Tech Shop,IP PTZ Camera,rtsp://bontech:Paris2026%40@212.114.23.247:554/cam/realmonitor?channel=9&subtype=1,no,no
+Bon Tech Shop,IPC,rtsp://bontech:Paris2026%40@212.114.23.247:554/cam/realmonitor?channel=10&subtype=1,no,no

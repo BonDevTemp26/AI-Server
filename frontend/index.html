@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Monitor Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css?v=3">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar glass-panel">
+            <div class="logo">
+                <h2>AI Monitor</h2>
+                <div class="logo-sub">Intelligent Surveillance</div>
+            </div>
+            <nav class="nav-menu">
+                <a href="index.html" class="nav-item active">
+                    <span class="icon">🏠</span>
+                    Dashboard
+                </a>
+                <a href="shops.html" class="nav-item">
+                    <span class="icon">🏪</span>
+                    Shops & Cameras
+                </a>
+                <a href="models.html" class="nav-item">
+                    <span class="icon">🤖</span>
+                    Models
+                </a>
+                <a href="theft_detection.html" class="nav-item">
+                    <span class="icon">🦹</span>
+                    Theft Detection
+                </a>
+                <a href="theft_videos.html" class="nav-item">
+                    <span class="icon">📼</span>
+                    Theft Videos
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header glass-panel">
+                <h1>System Overview</h1>
+                <div class="header-status" style="display: flex; align-items: center; gap: 20px;">
+                    <div class="mode-toggle" style="background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--glass-border);">
+                        <label style="margin-right: 8px; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Server Mode:</label>
+                        <select id="server-mode-select" class="glass-input" style="padding: 4px 8px; border-radius: 4px; border: none; background: transparent; color: white; cursor: pointer; outline: none; font-weight: 600;">
+                            <option style="background: #1e1e1e;" value="standalone">🖥️ Standalone (Local)</option>
+                            <option style="background: #1e1e1e;" value="cloud">☁️ Cloud API (Event-Driven)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <span class="live-indicator"></span> Live Monitoring Active
+                        <span class="last-updated" id="last-updated"></span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="dashboard-grid">
+                <!-- Summary Stats -->
+                <div class="stats-container">
+                    <div class="stat-card glass-panel blue">
+                        <div class="stat-card-icon">🏪</div>
+                        <div class="stat-card-body">
+                            <h3>Total Shops</h3>
+                            <div class="stat-value num-animate" id="val-shops">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel teal">
+                        <div class="stat-card-icon">📹</div>
+                        <div class="stat-card-body">
+                            <h3>Total Cameras</h3>
+                            <div class="stat-value num-animate" id="val-cameras">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel green">
+                        <div class="stat-card-icon" id="card-online-icon">🟢</div>
+                        <div class="stat-card-body">
+                            <h3 id="card-online-title">Cameras Online</h3>
+                            <div class="stat-value num-animate" id="val-online">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel"
+                        style="border-color:rgba(251,146,60,.4); background:rgba(251,146,60,.08);" id="card-error">
+                        <div class="stat-card-icon">⚠️</div>
+                        <div class="stat-card-body">
+                            <h3>Stream Errors</h3>
+                            <div class="stat-value num-animate" id="val-error" style="color:#fb923c;">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel red">
+                        <div class="stat-card-icon" id="card-offline-icon">❌</div>
+                        <div class="stat-card-body">
+                            <h3 id="card-offline-title">Cameras Offline</h3>
+                            <div class="stat-value num-animate" id="val-offline">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel"
+                        style="border-color:rgba(168,85,247,.4); background:rgba(168,85,247,.08); display: flex; flex-direction: column;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                            <div class="stat-card-icon" style="margin-bottom: 0;">🦹</div>
+                            <h3 style="margin: 0;">Theft Monitoring</h3>
+                        </div>
+                        <div
+                            style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 15px;">
+                            <div style="display:flex; flex-direction:column;">
+                                <span
+                                    style="font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Active Cams</span>
+                                <span class="stat-value num-animate" id="val-theft-cams"
+                                    style="color:#a855f7; font-size:1.4rem; line-height:1;">-</span>
+                            </div>
+                            <div style="display:flex; flex-direction:column; text-align:center;">
+                                <span
+                                    style="font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Clips Today</span>
+                                <span class="stat-value num-animate" id="val-theft-today"
+                                    style="color:#a855f7; font-size:1.4rem; line-height:1;">-</span>
+                            </div>
+                            <div style="display:flex; flex-direction:column; text-align:right;">
+                                <span
+                                    style="font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Pending</span>
+                                <span class="stat-value num-animate" id="val-theft-pending"
+                                    style="color:#f59e0b; font-size:1.4rem; line-height:1;">-</span>
+                            </div>
+                        </div>
+                        <div id="theft-video-thumbnail"
+                            style="width: 100%; height: 100px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.2);"
+                            onclick="window.location.href='theft_videos.html'">
+                            <span style="font-size:0.8rem; color:var(--text-secondary);">Loading actual video...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detection Overview -->
+                <h2 class="section-title">AI detection</h2>
+                <div class="detection-container" id="detection-cards">
+                    <!-- Skeletons while loading -->
+                    <div class="detect-card glass-panel skeleton">
+                        <div class="skeleton-line" style="width:60%;margin-bottom:10px;"></div>
+                        <div class="skeleton-line" style="width:40%;height:28px;"></div>
+                    </div>
+                    <div class="detect-card glass-panel skeleton">
+                        <div class="skeleton-line" style="width:60%;margin-bottom:10px;"></div>
+                        <div class="skeleton-line" style="width:40%;height:28px;"></div>
+                    </div>
+                    <div class="detect-card glass-panel skeleton">
+                        <div class="skeleton-line" style="width:60%;margin-bottom:10px;"></div>
+                        <div class="skeleton-line" style="width:40%;height:28px;"></div>
+                    </div>
+                </div>
+
+                <!-- System Health -->
+                <h2 class="section-title">System Health</h2>
+                <div class="health-container glass-panel">
+                    <div class="health-item">
+                        <div class="health-header">
+                            <span class="health-label">CPU Usage</span>
+                            <span class="health-value num-animate" id="val-cpu-txt">-%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="bar-cpu"></div>
+                        </div>
+                    </div>
+                    <div class="health-item">
+                        <div class="health-header">
+                            <span class="health-label">GPU Usage</span>
+                            <span class="health-value num-animate" id="val-gpu-txt">-%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="bar-gpu"></div>
+                        </div>
+                    </div>
+                    <div class="health-item">
+                        <div class="health-header">
+                            <span class="health-label">NPU Usage</span>
+                            <span class="health-value num-animate" id="val-npu-txt">-%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="bar-npu"></div>
+                        </div>
+                    </div>
+                    <div class="health-item">
+                        <div class="health-header">
+                            <span class="health-label">RAM Usage (<span id="val-ram-gb">-</span> GB)</span>
+                            <span class="health-value num-animate" id="val-ram-txt">-%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="bar-ram"></div>
+                        </div>
+                    </div>
+                    <div class="health-item temp-display">
+                        <div class="temp-circle num-animate" id="val-temp-txt">--</div>
+                        <div class="health-header" style="flex-direction:column; justify-content:center;">
+                            <span class="health-label"
+                                style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.05em;">Core
+                                Temp</span>
+                            <span style="font-size:0.75rem; color:var(--text-secondary);">Thermal status</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <!-- Detection Modal -->
+    <div id="detection-modal" class="modal">
+        <div class="modal-content glass-panel" style="max-width: 800px; width: 90%;">
+            <div class="modal-header">
+                <h2 id="detection-modal-title">Active Cameras</h2>
+                <button class="btn" style="padding: 4px 10px;" onclick="closeDetectionModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <table class="glass-table"
+                    style="width:100%; text-align:left; border-collapse:collapse; margin-top:10px;">
+                    <thead id="detection-modal-thead">
+                        <tr>
+                            <th style="padding:10px; border-bottom:1px solid var(--glass-border);">Shop</th>
+                            <th style="padding:10px; border-bottom:1px solid var(--glass-border);">Camera</th>
+                            <th style="padding:10px; border-bottom:1px solid var(--glass-border);">Start Time</th>
+                            <th id="th-end-time" style="padding:10px; border-bottom:1px solid var(--glass-border);">End
+                                Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detection-modal-tbody">
+                        <tr>
+                            <td colspan="4" style="padding:10px; text-align:center;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/dashboard.js?v=6"></script>
+</body>
+
+</html>

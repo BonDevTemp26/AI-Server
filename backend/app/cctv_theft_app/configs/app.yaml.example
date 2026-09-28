@@ -1,0 +1,33 @@
+# Application orchestration — cameras, backend selection, runtime paths.
+# Per-component settings live in the sibling YAML files.
+
+cameras:
+  - id: cam01
+    source: data/samples/demo.mp4      # rtsp://user:pass@host:554/stream1 | webcam:0 | file
+    loop: false                        # loop file sources (soak testing)
+
+runtime:
+  ingest_backend: opencv               # opencv | gstreamer  (gstreamer/DeepStream on Jetson)
+  detector_backend: yolo               # yolo | mock         (mock = GPU-less pipeline tests)
+  temporal_mode: novelty               # novelty | finetuned | mock   → configs/temporal_model.yaml
+  vlm_backend: openai_compatible       # openai_compatible | mock     → configs/vlm_verifier.yaml
+  device: cuda                         # cuda | cpu
+  max_runtime_s: 0                     # 0 = run until Ctrl-C (useful for tests)
+
+buffering:
+  backend: ring                        # ring (in-memory, any source) | segment (ffmpeg, RTSP prod)
+  buffer_duration_s: 60                # rolling window per camera (README: 30–60 s)
+  store_fps: 12.5                      # frames kept in the ring buffer (downsampled)
+  jpeg_quality: 85
+
+paths:
+  data_dir: data
+  clips_dir: data/clips                # extracted candidate/alert clips
+  alerts_log: data/alerts/alerts.jsonl
+  review_log: data/review/review.jsonl # human-in-the-loop queue (dashboard reads this)
+
+component_configs:
+  detector: configs/detector.yaml
+  temporal: configs/temporal_model.yaml
+  vlm: configs/vlm_verifier.yaml
+  alerts: configs/alerts.yaml

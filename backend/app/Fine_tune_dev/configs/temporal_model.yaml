@@ -1,0 +1,98 @@
+# =============================================================================
+# Stage 2 — Temporal model (VideoMAEv2) configuration
+#
+# Consumed by:
+#   training/train_videomae.py     (fine-tuning)
+#   training/eval_metrics.py       (offline evaluation)
+#   temporal/videomae_infer.py     (streaming inference)
+#   temporal/export_videomae.py    (ONNX / TensorRT export)
+#
+# See docs/videomae_v2_implementation_guide.md for the full walkthrough.
+# =============================================================================
+
+model:
+  # vit_small_patch16_224 | vit_base_patch16_224 | vit_large_patch16_224
+  # ViT-S for Jetson-class edge boxes, ViT-B for a server GPU (default).
+  arch: vit_small_patch16_224
+  num_frames: 16                 # frames per clip fed to the model
+  tubelet_size: 2                # temporal patch size (VideoMAEv2 default)
+  input_size: 224
+  drop_path_rate: 0.1            # stochastic depth (0.05 for ViT-S, 0.2 for ViT-L)
+  # K710-distilled VideoMAEv2 weights (scripts/download_pretrained.py):
+  pretrained_checkpoint: models/checkpoints/vit_b_k710_dl_from_giant.pth
+  grad_checkpointing: true       # trades ~30% speed for large VRAM savings
+
+data:
+  # First class is the "background" class; order defines the label indices
+  # stored in checkpoints and used everywhere downstream.
+  classes:
+    - normal                     # regular shopping, browsing, staff restocking
+    - concealment                # item into pocket / bag / clothing / stroller
+    - grab_and_run               # grabs merchandise and exits fast
+    - suspicious_handling        # tag removal, box swap, repeated nervous handling
+  # Contribution of each class to the fused "theft score" used for triggering.
+  theft_class_weights:
+    concealment: 1.0
+    grab_and_run: 1.0
+    suspicious_handling: 0.6
+  train_manifest: data/annotations/train.csv
+  val_manifest: data/annotations/val.csv
+  test_manifest: data/annotations/test.csv
+  clip_fps: 25                   # fps of the prepared clips (scripts/prepare_dataset.py)
+  sampling_rate: 4               # sample every 4th frame -> 16 x 4 / 25 ≈ 2.56 s of context
+  num_workers: 2
+  balanced_sampling: true        # oversample rare theft classes every epoch
+
+augment:                         # training-time augmentation (clip-consistent)
+  crop_scale: [0.5, 1.0]         # RandomResizedCrop area range (CCTV: avoid tiny crops)
+  hflip: 0.5
+  color_jitter: 0.2              # brightness/contrast/saturation jitter strength, 0 = off
+  random_erase: 0.25             # probability of erasing one box per clip, 0 = off
+
+train:
+  output_dir: models/checkpoints/videomaev2_theft_ft
+  epochs: 40
+  warmup_epochs: 5
+  batch_size: 2                  # per-step GPU batch (fits 4 GB with grad_checkpointing)
+  accum_steps: 8                 # effective batch = batch_size x accum_steps = 16
+  base_lr: 1.0e-3                # scaled linearly: lr = base_lr x effective_batch / 256
+  min_lr: 1.0e-6
+  weight_decay: 0.05
+  layer_decay: 0.75              # layer-wise LR decay (backbone lower, head higher)
+  label_smoothing: 0.1
+  mixup_alpha: 0.8               # 0 disables mixup (recommended when < ~300 clips)
+  cutmix_alpha: 1.0              # 0 disables cutmix
+  mixup_prob: 1.0                # probability a batch is mixed at all
+  mixup_switch_prob: 0.5         # chance of cutmix instead of mixup when both enabled
+  freeze_blocks: 0               # freeze patch-embed + first N blocks (tiny datasets: 6)
+  clip_grad: 5.0
+  amp: auto                      # auto | bf16 | fp16 | off
+  monitor: theft_pr_auc          # best-checkpoint metric: theft_pr_auc | macro_f1 | top1
+  early_stop_patience: 10        # epochs without val improvement; 0 = disabled
+  seed: 42
+
+eval:
+  temporal_views: 2              # test-time temporal clips per video
+  spatial_views: 3               # 3 = left/center/right crops, 1 = center only
+  batch_size: 4
+
+inference:
+  checkpoint: models/checkpoints/videomaev2_theft_ft/best.pth
+  window_stride_s: 1.0           # classify once per second per camera
+  ema_alpha: 0.6                 # smoothing of the fused theft score (higher = snappier)
+  trigger_threshold: 0.70        # fire candidate when smoothed score >= this ...
+  rearm_threshold: 0.40          # ... and only re-arm after it falls below this
+  min_consecutive: 2             # windows over threshold required before firing
+  cooldown_s: 30                 # minimum gap between events per camera
+  clip_pre_s: 15                 # snapshot window sent to the rolling buffer / VLM
+  clip_post_s: 15                #   (matches the T-15s -> T+15s contract in the README)
+  fusion:                        # combining with the RTFM anomaly head (when present)
+    mode: max                    # max | weighted
+    anomaly_weight: 0.4          # only used when mode == weighted
+
+export:
+  onnx_path: models/exported/videomaev2_theft.onnx
+  opset: 17
+  trt_engine_path: models/exported/videomaev2_theft_fp16.plan
+  trt_precision: fp16
+  max_batch: 8                   # dynamic-batch upper bound for the TensorRT profile

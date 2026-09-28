@@ -1,0 +1,6 @@
+video,start_s,end_s,label,camera_id
+cam03/2026-07-01_afternoon.mp4,732.5,738.0,concealment,cam03
+cam03/2026-07-01_afternoon.mp4,1204.0,1209.5,normal,cam03
+cam07/2026-07-02_morning.mp4,88.2,93.0,grab_and_run,cam07
+cam07/2026-07-02_morning.mp4,415.0,422.5,suspicious_handling,cam07
+cam11/2026-07-03_evening.mp4,55.0,61.0,concealment,cam11

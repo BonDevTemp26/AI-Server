@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Monitor - Theft Videos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .video-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .video-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            border-color: rgba(168, 85, 247, 0.5);
+        }
+
+        .video-thumbnail {
+            width: 100%;
+            height: 180px;
+            background: #1a1a2e;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.7;
+        }
+
+        .play-icon {
+            position: absolute;
+            font-size: 3rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s;
+        }
+
+        .video-card:hover .play-icon {
+            opacity: 0;
+            transform: scale(1.1);
+            color: #fff;
+        }
+
+        .video-info {
+            padding: 15px;
+        }
+
+        .video-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .severity-badge {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+            background: rgba(168, 85, 247, 0.2);
+            color: #d8b4fe;
+            border: 1px solid rgba(168, 85, 247, 0.4);
+        }
+
+        .severity-high {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        .video-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        /* Modal for video playback */
+        .video-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .video-modal.active {
+            display: flex;
+        }
+
+        .video-modal-content {
+            width: 80%;
+            max-width: 900px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .video-modal-header {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .video-modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .video-player {
+            width: 100%;
+            min-height: 280px;
+            aspect-ratio: 16/9;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            overflow: hidden;
+        }
+
+        .vlm-analysis {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .vlm-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .vlm-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .tabs-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: var(--glass-bg);
+            color: var(--text-secondary);
+            border: 1px solid var(--glass-border);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            font-weight: 500;
+        }
+
+        .tab-btn:hover {
+            background: rgba(168, 85, 247, 0.1);
+            color: #fff;
+        }
+
+        .tab-btn.active {
+            background: #a855f7;
+            color: #fff;
+            border-color: #a855f7;
+        }
+
+        .modal-body-split {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .modal-video-section {
+            flex: 2;
+            min-width: 300px;
+            background: #000;
+        }
+
+        .modal-info-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px;
+            background: var(--glass-bg);
+            border-left: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-row {
+            margin-bottom: 12px;
+        }
+
+        .info-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .btn-confirm {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        .btn-confirm:hover {
+            background: #059669;
+        }
+
+        .btn-reject {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        .btn-reject:hover {
+            background: #dc2626;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar glass-panel">
+            <div class="logo">
+                <h2>AI Monitor</h2>
+                <div class="logo-sub">Intelligent Surveillance</div>
+            </div>
+            <nav class="nav-menu">
+                <a href="index.html" class="nav-item">
+                    <span class="icon">🏠</span> Dashboard
+                </a>
+                <a href="shops.html" class="nav-item">
+                    <span class="icon">🏪</span> Shops & Cameras
+                </a>
+                <a href="models.html" class="nav-item">
+                    <span class="icon">🤖</span> Models
+                </a>
+                <a href="theft_detection.html" class="nav-item">
+                    <span class="icon">🦹</span> Theft Detection
+                </a>
+                <a href="theft_videos.html" class="nav-item active">
+                    <span class="icon">📼</span> Theft Videos
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header glass-panel">
+                <h1>Detected Theft Videos</h1>
+                <span style="font-size:0.85rem; color:var(--text-secondary);">Review incidents flagged by the AI VLM
+                    verification pipeline</span>
+            </header>
+
+
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
+                <div class="tabs-container" id="filter-tabs" style="margin-top: 0;">
+                    <button class="tab-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+                    <button class="tab-btn" data-filter="pending" onclick="setFilter('pending')">Pending View</button>
+                    <button class="tab-btn" data-filter="alert" onclick="setFilter('alert')">Alert</button>
+                    <button class="tab-btn" data-filter="confirmed" onclick="setFilter('confirmed')">Confirm
+                        theft</button>
+                    <button class="tab-btn" data-filter="false_positive" onclick="setFilter('false_positive')">False
+                        positive</button>
+                </div>
+                <div class="sort-container" style="display: flex; gap: 10px; align-items: center;">
+                    <button class="tab-btn" style="background: var(--glass-bg); padding: 8px 16px;" onclick="openTestVideoModal()">Test Video</button>
+                    <select id="sort-order" class="tab-btn"
+                        style="padding: 8px 16px; border-radius: 8px; appearance: auto; background: var(--glass-bg); color: var(--text-primary);"
+                        onchange="setSortOrder(this.value)">
+                        <option value="desc">Newest First</option>
+                        <option value="asc">Oldest First</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="search-bar" style="margin-top: 20px;">
+                <div class="search-input-wrap">
+                    <span class="search-icon">🔎</span>
+                    <input type="text" class="search-input" placeholder="Search by shop, camera, or date...">
+                </div>
+            </div>
+
+            <div class="video-grid" id="video-grid">
+                <!-- Videos injected here by JS -->
+                <div style="color:var(--text-secondary); text-align:center; grid-column:1/-1;">Loading theft events...
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Video Modal -->
+    <div class="video-modal" id="video-modal">
+        <div class="video-modal-content" style="max-width: 1200px; width: 95%;">
+            <div class="video-modal-header">
+                <h3 id="modal-video-title">Incident Review</h3>
+                <button class="video-modal-close" onclick="closeVideoModal()">✕</button>
+            </div>
+            <div class="modal-body-split">
+                <div class="modal-video-section video-player" id="modal-video-player"></div>
+                <div class="modal-info-section">
+                    <div class="vlm-title" style="margin-bottom: 20px;">
+                        <span style="font-size:1.2rem">🤖</span> Verification Details
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Camera Name</div>
+                        <div class="info-value" id="modal-cam-name">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">Detection Score</div>
+                        <div class="info-value" id="modal-score">-</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">VLM Reject Score</div>
+                        <div class="info-value" id="modal-vlm-score">-</div>
+                    </div>
+                    <div class="info-row" style="flex: 1;">
+                        <div class="info-label">VLM Content</div>
+                        <div class="info-value" id="modal-vlm-content"
+                            style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">-</div>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn-confirm" onclick="updateReview('confirmed')">Confirm</button>
+                        <button class="btn-reject" onclick="updateReview('false_positive')">Reject</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Video Modal -->
+    <div class="video-modal" id="test-video-modal">
+        <div class="video-modal-content" style="max-width: 600px; padding: 20px;">
+            <div class="video-modal-header" style="padding: 0 0 15px 0;">
+                <h3>Upload Test Video</h3>
+                <button class="video-modal-close" onclick="closeTestVideoModal()">✕</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+                <input type="text" id="test-shop-name" placeholder="Shop Name" style="padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white;">
+                <input type="text" id="test-cam-name" placeholder="Camera Name" style="padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white;">
+                <input type="file" id="test-video-file" accept="video/mp4,video/x-m4v,video/*" style="color: white;">
+                <button id="test-submit-btn" class="btn-confirm" onclick="submitTestVideo()">Detect Theft</button>
+                <div id="test-loading" style="display: none; color: var(--text-secondary); text-align: center;">Loading... processing video...</div>
+                <div id="test-result" style="display: none; padding: 15px; background: rgba(168, 85, 247, 0.2); border-radius: 8px; border: 1px solid rgba(168, 85, 247, 0.4);">
+                    <div style="font-weight: bold; margin-bottom: 5px;">Result: <span id="test-result-state" style="color: #d8b4fe; text-transform: uppercase;"></span></div>
+                    <div>Score: <span id="test-result-score"></span></div>
+                    <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 5px;" id="test-result-msg"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        let allEvents = [];
+        let currentFilter = 'all';
+        let currentEventId = null;
+        let currentSortOrder = 'desc';
+
+        function openTestVideoModal() {
+            document.getElementById('test-shop-name').value = '';
+            document.getElementById('test-cam-name').value = '';
+            document.getElementById('test-video-file').value = '';
+            document.getElementById('test-result').style.display = 'none';
+            document.getElementById('test-video-modal').classList.add('active');
+        }
+
+        function closeTestVideoModal() {
+            document.getElementById('test-video-modal').classList.remove('active');
+        }
+
+        async function submitTestVideo() {
+            const shopName = document.getElementById('test-shop-name').value;
+            const camName = document.getElementById('test-cam-name').value;
+            const fileInput = document.getElementById('test-video-file');
+            
+            if (!shopName || !camName || !fileInput.files[0]) {
+                showToast("Please fill all fields and select a video.", "error");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('shop_name', shopName);
+            formData.append('camera_name', camName);
+            formData.append('video', fileInput.files[0]);
+
+            const submitBtn = document.getElementById('test-submit-btn');
+            const loading = document.getElementById('test-loading');
+            const resultDiv = document.getElementById('test-result');
+            
+            submitBtn.style.display = 'none';
+            loading.style.display = 'block';
+            resultDiv.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/dashboard/test-video', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!res.ok) throw new Error("Server Error");
+                
+                const data = await res.json();
+                
+                document.getElementById('test-result-state').innerText = data.state;
+                document.getElementById('test-result-score').innerText = data.score;
+                document.getElementById('test-result-msg').innerText = data.message;
+                resultDiv.style.display = 'block';
+                showToast("Video processed successfully!", "success");
+            } catch (e) {
+                console.error(e);
+                showToast("Error processing test video.", "error");
+            } finally {
+                submitBtn.style.display = 'block';
+                loading.style.display = 'none';
+            }
+        }
+
+        function setSortOrder(order) {
+            currentSortOrder = order;
+            renderEvents();
+        }
+
+        function setFilter(filterType) {
+            currentFilter = filterType;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-filter') === filterType) {
+                    btn.classList.add('active');
+                }
+            });
+            renderEvents();
+        }
+
+        async function loadTheftVideos() {
+            try {
+                // Fetch recent theft detections
+                const res = await fetch('/api/dashboard/detections?type=theft&limit=100');
+                allEvents = await res.json();
+                renderEvents();
+            } catch (e) {
+                console.error("Failed to load theft events", e);
+                document.getElementById('video-grid').innerHTML = '<div style="color:var(--red); text-align:center; grid-column:1/-1;">Error loading data.</div>';
+            }
+        }
+
+        function renderEvents() {
+            const grid = document.getElementById('video-grid');
+
+            let filtered = allEvents.filter(ev => {
+                const state = (ev.metadata && ev.metadata.review_state) ? ev.metadata.review_state : 'pending';
+                if (currentFilter === 'all') return true;
+                return state === currentFilter;
+            });
+
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.detected_at).getTime();
+                const dateB = new Date(b.detected_at).getTime();
+                return currentSortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div style="color:var(--text-secondary); text-align:center; grid-column:1/-1; padding:40px;">No events found for this filter.</div>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(ev => {
+                const videoPath = ev.metadata && ev.metadata.video_path ? ev.metadata.video_path : null;
+                const date = new Date(ev.detected_at).toLocaleString();
+                const shop = ev.shop_name || 'Unknown Shop';
+                const cam = ev.camera_name || 'Unknown Camera';
+                const confStr = ev.confidence ? (ev.confidence * 100).toFixed(1) + '%' : 'High';
+                const state = (ev.metadata && ev.metadata.review_state) ? ev.metadata.review_state : 'pending';
+
+                let badgeColor = 'rgba(168, 85, 247, 0.2)';
+                let badgeText = '#d8b4fe';
+                if (state === 'confirmed') { badgeColor = 'rgba(16, 185, 129, 0.2)'; badgeText = '#34d399'; }
+                if (state === 'false_positive') { badgeColor = 'rgba(239, 68, 68, 0.2)'; badgeText = '#fca5a5'; }
+
+                return `
+                    <div class="video-card" onclick="openVideoModal(${ev.id})">
+                        <div class="video-thumbnail" style="position: relative; overflow: hidden;" 
+                             onmouseenter="const v=this.querySelector('video'); if(v) v.play().catch(e=>{});" 
+                             onmouseleave="const v=this.querySelector('video'); if(v) {v.pause(); v.currentTime=0;}">
+                            ${videoPath ? `
+                                <video preload="metadata" style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0;" muted loop playsinline
+                                    onloadedmetadata="this.currentTime=1">
+                                    <source src="${videoPath}" type="video/mp4">
+                                </video>
+                                <div class="play-icon" style="z-index: 10;">▶</div>
+                            ` : '<div style="color:var(--text-secondary); z-index: 10;">No Clip Saved</div>'}
+                        </div>
+                        <div class="video-info">
+                            <div class="video-title">
+                                ${cam}
+                                <span class="severity-badge" style="background:${badgeColor}; color:${badgeText}; border-color:${badgeColor};">${state.toUpperCase()}</span>
+                            </div>
+                            <div class="video-meta">
+                                <span>🏪 ${shop}</span>
+                                <span>🕒 ${date}</span>
+                                <span>Score: ${confStr}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openVideoModal(eventId) {
+            const ev = allEvents.find(e => e.id === eventId);
+            if (!ev) return;
+
+            currentEventId = eventId;
+            const shop = ev.shop_name || 'Unknown Shop';
+            const cam = ev.camera_name || 'Unknown Camera';
+            const score = ev.confidence ? (ev.confidence * 100).toFixed(1) + '%' : 'High';
+            const vlmRejectScore = ev.metadata && ev.metadata.vlm_reject_score ? (ev.metadata.vlm_reject_score * 100).toFixed(1) + '%' : 'N/A';
+            const vlmContent = ev.metadata && ev.metadata.vlm_content ? ev.metadata.vlm_content : 'No VLM description available.';
+            const videoPath = ev.metadata && ev.metadata.video_path ? ev.metadata.video_path : null;
+
+            document.getElementById('modal-video-title').innerText = 'Reviewing: ' + shop + ' - ' + cam;
+            document.getElementById('modal-cam-name').innerText = cam;
+            document.getElementById('modal-score').innerText = score;
+            document.getElementById('modal-vlm-score').innerText = vlmRejectScore;
+            document.getElementById('modal-vlm-content').innerText = vlmContent;
+
+            const playerContainer = document.getElementById('modal-video-player');
+            playerContainer.innerHTML = '';
+            if (videoPath && videoPath !== 'null') {
+                const vid = document.createElement('video');
+                vid.controls = true;
+                vid.autoplay = true;
+                vid.muted = false;
+                vid.playsInline = true;
+                vid.style.cssText = 'width:100%; height:100%; max-height:60vh; display:block; background:#000;';
+                const src = document.createElement('source');
+                src.src = videoPath;
+                src.type = 'video/mp4';
+                vid.appendChild(src);
+                playerContainer.appendChild(vid);
+                vid.load();
+                vid.play().catch(() => { /* User gesture required — controls shown */ });
+            } else {
+                playerContainer.innerHTML = '<span style="color:var(--text-secondary); padding:20px;">[No Video Clip Available for this Event]</span>';
+            }
+
+            document.getElementById('video-modal').classList.add('active');
+        }
+
+        async function updateReview(state) {
+            if (!currentEventId) return;
+            try {
+                const res = await fetch(`/api/dashboard/detections/${currentEventId}/review`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ review_state: state })
+                });
+                if (res.ok) {
+                    const ev = allEvents.find(e => e.id === currentEventId);
+                    if (ev) {
+                        if (!ev.metadata) ev.metadata = {};
+                        ev.metadata.review_state = state;
+                    }
+                    renderEvents();
+                    closeVideoModal();
+                    showToast("Status updated successfully!", "success");
+                } else {
+                    showToast("Failed to update status. Please try again.", "error");
+                }
+            } catch (e) {
+                console.error(e);
+                showToast("Error updating status.", "error");
+            }
+        }
+
+
+        function closeVideoModal() {
+            document.getElementById('video-modal').classList.remove('active');
+            const container = document.getElementById('modal-video-player');
+            const vid = container.querySelector('video');
+            if (vid) { vid.pause(); vid.src = ''; }
+            container.innerHTML = '';
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.style.position = 'fixed';
+            toast.style.bottom = '20px';
+            toast.style.right = '20px';
+            toast.style.padding = '12px 24px';
+            toast.style.background = type === 'success' ? '#10b981' : '#ef4444';
+            toast.style.color = '#fff';
+            toast.style.borderRadius = '8px';
+            toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+            toast.style.zIndex = '9999';
+            toast.style.fontFamily = 'inherit';
+            toast.style.fontWeight = '500';
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            toast.style.transform = 'translateY(20px)';
+            toast.innerText = message;
+
+            document.body.appendChild(toast);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            });
+
+            // Animate out
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Close modal on outside click
+        document.getElementById('video-modal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeVideoModal();
+            }
+        });
+
+        document.getElementById('test-video-modal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeTestVideoModal();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', loadTheftVideos);
+    </script>
+</body>
+
+</html>

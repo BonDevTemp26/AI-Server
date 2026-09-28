@@ -1,0 +1,10 @@
+api: yes
+apiAddress: :9997
+
+authInternalUsers:
+  - user: admin
+    pass: admin
+    permissions:
+      - action: api
+      - action: publish
+      - action: read

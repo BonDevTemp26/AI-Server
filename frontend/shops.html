@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Monitor - Shops & Cameras</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Inline styles for shops specific elements to supplement style.css -->
+    <style>
+        .page-actions {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-danger {
+            background: var(--accent-red);
+            border: none;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .shop-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .shop-item {
+            padding: 15px;
+            border-radius: 12px;
+            transition: background 0.3s;
+        }
+
+        .shop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .shop-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .shop-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .model-toggles {
+            display: flex;
+            gap: 5px;
+            margin: 0 15px;
+        }
+
+        .toggle-btn {
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .toggle-btn.active {
+            background: var(--accent-green);
+            color: white;
+            border-color: var(--accent-green);
+        }
+
+        .model-icon-btn {
+            padding: 5px 10px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            min-width: 36px;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .model-icon-btn.active {
+            background: rgba(16, 185, 129, 0.25);
+            border-color: var(--accent-green);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .model-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            right: 0;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            backdrop-filter: blur(12px);
+            z-index: 200;
+            min-width: 160px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+        }
+
+        .model-dd-item {
+            padding: 9px 14px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            color: var(--text-primary);
+            transition: background 0.15s;
+        }
+
+        .model-dd-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .model-dd-item.active {
+            color: #34d399;
+            font-weight: 600;
+        }
+
+        .camera-list {
+            margin-top: 15px;
+            margin-left: 20px;
+            padding-left: 20px;
+            border-left: 2px solid var(--glass-border);
+            display: none;
+        }
+
+        .shop-item.expanded .camera-list {
+            display: block;
+        }
+
+        .camera-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .camera-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .camera-name {
+            font-weight: 500;
+        }
+
+        .camera-url {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Bulk Result Cards */
+        .bulk-result-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .bulk-stat-card {
+            padding: 14px 10px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid;
+        }
+
+        .bulk-stat-card .bsc-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .bulk-stat-card .bsc-label {
+            font-size: 0.72rem;
+            margin-top: 5px;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .bsc-inserted {
+            background: rgba(16, 185, 129, .12);
+            border-color: rgba(16, 185, 129, .35);
+            color: #34d399;
+        }
+
+        .bsc-updated {
+            background: rgba(59, 130, 246, .12);
+            border-color: rgba(59, 130, 246, .35);
+            color: #60a5fa;
+        }
+
+        .bsc-skipped {
+            background: rgba(245, 158, 11, .12);
+            border-color: rgba(245, 158, 11, .35);
+            color: #fbbf24;
+        }
+
+        .bsc-errors {
+            background: rgba(239, 68, 68, .12);
+            border-color: rgba(239, 68, 68, .35);
+            color: #f87171;
+        }
+
+        .bulk-success-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(16, 185, 129, .1);
+            border: 1px solid rgba(16, 185, 129, .3);
+            border-radius: 8px;
+            color: #34d399;
+            font-size: 0.88rem;
+            font-weight: 500;
+            margin-top: 16px;
+        }
+
+        .bulk-error-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(239, 68, 68, .1);
+            border: 1px solid rgba(239, 68, 68, .3);
+            border-radius: 8px;
+            color: #f87171;
+            font-size: 0.88rem;
+            font-weight: 500;
+            margin-top: 16px;
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            width: 400px;
+            padding: 25px;
+            border-radius: 12px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: white;
+        }
+
+        /* Timeline */
+        .timeline-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .timeline-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .timeline-row-label {
+            width: 80px;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .timeline-bar-wrapper {
+            position: relative;
+            flex: 1;
+            height: 30px;
+            background: #111;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .timeline-ticks-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .timeline-ticks {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-secondary);
+            font-size: 0.72rem;
+        }
+
+        .timeline-segment {
+            position: absolute;
+            height: 100%;
+            top: 0;
+            opacity: 0.85;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .timeline-segment:hover {
+            opacity: 1;
+        }
+
+        .timeline-legend {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .timeline-tooltip {
+            position: fixed;
+            background: rgba(10, 10, 20, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+        }
+
+        /* Motion button standalone style */
+        .motion-btn {
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            border-radius: 20px;
+            border: 1px solid #f59e0b;
+            background: transparent;
+            color: #f59e0b;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .motion-btn.active {
+            background: #f59e0b;
+            color: #000;
+        }
+
+        .theft-btn {
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            border-radius: 20px;
+            border: 1px solid #a855f7;
+            background: transparent;
+            color: #a855f7;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .theft-btn:hover {
+            background: #a855f7;
+            color: #fff;
+        }
+
+        .theft-btn.active {
+            background: #a855f7;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(168,85,247,0.4);
+        }
+
+        .theft-btn:active {
+            transform: scale(0.95);
+        }
+
+        .camera-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: flex-end;
+        }
+
+        .camera-controls-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar glass-panel">
+            <div class="logo">
+                <h2>AI Monitor</h2>
+                <div class="logo-sub">Intelligent Surveillance</div>
+            </div>
+            <nav class="nav-menu">
+                <a href="index.html" class="nav-item">
+                    <span class="icon">🏠</span>
+                    Dashboard
+                </a>
+                <a href="shops.html" class="nav-item active">
+                    <span class="icon">🏪</span>
+                    Shops & Cameras
+                </a>
+                <a href="models.html" class="nav-item">
+                    <span class="icon">🤖</span>
+                    Models
+                </a>
+                <a href="theft_detection.html" class="nav-item">
+                    <span class="icon">🦹</span>
+                    Theft Detection
+                </a>
+                <a href="theft_videos.html" class="nav-item">
+                    <span class="icon">📼</span>
+                    Theft Videos
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header glass-panel">
+                <h1>Shops & Cameras</h1>
+                <div class="header-status" style="background:transparent; border:none; padding:0; gap:12px;">
+                    <button class="btn btn-primary" onclick="openShopModal()">+ Add Shop</button>
+                    <button class="btn" style="background:rgba(255,255,255,.05);" onclick="openBulkModal()">Bulk Insert
+                        (CSV/Excel)</button>
+                </div>
+            </header>
+
+            <div class="search-bar">
+                <div class="search-input-wrap">
+                    <span class="search-icon">🔎</span>
+                    <input type="text" class="search-input" id="shop-search" placeholder="Search shops or cameras..."
+                        oninput="renderShopList()">
+                </div>
+            </div>
+
+            <div class="shop-list" id="shop-list">
+                <!-- Injected via JS -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Add/Edit Shop Modal -->
+    <div class="modal" id="shop-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="shop-modal-title">Add Shop</h3>
+                <button class="btn" style="padding: 2px 8px;" onclick="closeModals()">✖</button>
+            </div>
+            <input type="hidden" id="shop-id">
+            <div class="form-group">
+                <label>Shop Name</label>
+                <input type="text" id="shop-name" class="form-control" placeholder="Enter shop name">
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="saveShop()">Save Shop</button>
+        </div>
+    </div>
+
+    <!-- Add/Edit Camera Modal -->
+    <div class="modal" id="camera-modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="camera-modal-title">Add Camera</h3>
+                <button class="btn" style="padding: 2px 8px;" onclick="closeModals()">✖</button>
+            </div>
+            <input type="hidden" id="camera-shop-id">
+            <input type="hidden" id="camera-id">
+            <div class="form-group">
+                <label>Camera Name</label>
+                <input type="text" id="camera-name" class="form-control" placeholder="e.g. Front Door">
+            </div>
+            <div class="form-group">
+                <label>RTSP URL</label>
+                <input type="text" id="camera-rtsp" class="form-control" placeholder="rtsp://...">
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="saveCamera()">Save Camera</button>
+        </div>
+    </div>
+
+    <!-- Bulk Insert Modal -->
+    <div class="modal" id="bulk-modal">
+        <div class="modal-content glass-panel" style="width:480px; max-width:95vw;">
+            <div class="modal-header">
+                <h3>📂 Bulk Insert</h3>
+                <button class="btn" style="padding:2px 8px;" onclick="closeModals()">✖</button>
+            </div>
+
+            <!-- Column hints -->
+            <div style="background:rgba(0,0,0,.25); border-radius:8px; padding:10px 14px; margin-bottom:16px;">
+                <div
+                    style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:5px; text-transform:uppercase; letter-spacing:.05em;">
+                    Required Columns</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <span
+                        style="background:rgba(59,130,246,.2); color:#93c5fd; border:1px solid rgba(59,130,246,.3); border-radius:5px; padding:2px 10px; font-size:0.8rem; font-family:monospace;">shop_name</span>
+                    <span
+                        style="background:rgba(16,185,129,.2); color:#6ee7b7; border:1px solid rgba(16,185,129,.3); border-radius:5px; padding:2px 10px; font-size:0.8rem; font-family:monospace;">display_name</span>
+                    <span
+                        style="background:rgba(245,158,11,.2); color:#fcd34d; border:1px solid rgba(245,158,11,.3); border-radius:5px; padding:2px 10px; font-size:0.8rem; font-family:monospace;">rtsp_url</span>
+                </div>
+            </div>
+
+            <!-- Drop Zone -->
+            <div id="bulk-drop-zone" onclick="document.getElementById('bulk-file').click()"
+                ondragover="event.preventDefault(); document.getElementById('bulk-drop-zone').style.borderColor='var(--accent-blue)'; document.getElementById('bulk-drop-zone').style.background='rgba(59,130,246,.07)'"
+                ondragleave="document.getElementById('bulk-drop-zone').style.borderColor=''; document.getElementById('bulk-drop-zone').style.background=''"
+                ondrop="handleBulkDrop(event)" style="border:2px dashed var(--glass-border); border-radius:12px; padding:28px 20px;
+                        text-align:center; cursor:pointer; transition:all .25s; margin-bottom:16px;">
+                <div style="font-size:2.5rem; margin-bottom:8px;">📊</div>
+                <div style="font-size:0.9rem; font-weight:500; color:var(--text-primary);">Drag &amp; drop your file
+                    here</div>
+                <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
+                    or <span style="color:var(--accent-blue); text-decoration:underline;">click to browse</span>
+                    &nbsp;·&nbsp; CSV or Excel (.xlsx)
+                </div>
+                <div id="bulk-file-name"
+                    style="font-size:0.82rem; color:var(--accent-green); margin-top:10px; font-weight:600;"></div>
+            </div>
+            <input type="file" id="bulk-file" accept=".csv,.xlsx" style="display:none"
+                onchange="showBulkFileName(event)">
+
+            <button class="btn btn-primary" id="bulk-upload-btn" style="width:100%; padding:11px;"
+                onclick="uploadBulk()">
+                ⬆️ &nbsp;Upload &amp; Process
+            </button>
+
+            <!-- Result Cards (injected by JS) -->
+            <div id="bulk-result"></div>
+        </div>
+    </div>
+
+    <!-- Timeline Modal -->
+    <div class="modal" id="timeline-modal">
+        <div class="modal-content glass-panel" style="width: 820px; max-width: 95vw;">
+            <div class="modal-header">
+                <h3 id="timeline-title">📊 Camera Timeline</h3>
+                <button class="btn" style="padding: 2px 8px;" onclick="closeModals()">✖</button>
+            </div>
+            <div class="timeline-container">
+                <div class="timeline-header">
+                    <span id="timeline-camera-name" style="font-weight:600;">Camera Name</span>
+                    <input type="date" id="timeline-date" class="form-control" style="width: 150px; padding: 5px;"
+                        onchange="loadTimeline()">
+                </div>
+
+                <!-- Motion Row -->
+                <div class="timeline-row">
+                    <span class="timeline-row-label">🟡 Motion</span>
+                    <div class="timeline-bar-wrapper" id="timeline-bar-motion"></div>
+                </div>
+
+                <!-- Detection Row -->
+                <div class="timeline-row">
+                    <span class="timeline-row-label">🔵 Detection</span>
+                    <div class="timeline-bar-wrapper" id="timeline-bar-detect"></div>
+                </div>
+
+                <!-- Ticks -->
+                <div class="timeline-ticks-row">
+                    <span style="width:80px;"></span>
+                    <div class="timeline-ticks">
+                        <span>0h</span><span>4h</span><span>8h</span><span>12h</span><span>16h</span><span>20h</span><span>24h</span>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="timeline-legend">
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#f59e0b"></div> Motion
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#3b82f6"></div> Human
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#ef4444"></div> Fire
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#a855f7"></div> Weapon
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#10b981"></div> Other
+                    </div>
+                </div>
+            </div>
+            <div id="timeline-tooltip" class="timeline-tooltip"></div>
+        </div>
+    </div>
+
+    <script src="js/ui.js"></script>
+    <script src="js/shops.js?v=4"></script>
+</body>
+
+</html>

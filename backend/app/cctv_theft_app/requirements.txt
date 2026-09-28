@@ -1,0 +1,34 @@
+# ── CCTV Theft Detection App ─────────────────────────────────────────────────
+# Python 3.10–3.12. GPU torch: https://pytorch.org/get-started/locally/
+# e.g.  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+
+# Core (all phases)
+numpy>=1.24
+opencv-python>=4.8            # opencv-python-headless on servers
+PyYAML>=6.0
+requests>=2.31
+
+# Stage 1 — detection & tracking (YOLO26-S + ByteTrack)
+ultralytics>=8.3
+lap>=0.5.12                   # ByteTrack assignment solver (avoids mid-run AutoUpdate)
+
+# Stage 2 — temporal (VideoMAEv2; architecture is loaded from the repo-root
+# training stack, so only torch is needed here)
+torch>=2.3
+torchvision>=0.18
+
+# Stage 4 — alert channels (all free)
+paho-mqtt>=2.0
+
+# Stage 3 — local Hugging Face VLM (only for backend: hf_local; the default
+# hosted backend needs nothing beyond requests). Uncomment to install:
+# transformers>=4.49
+# accelerate>=0.30
+# bitsandbytes>=0.43        # only if local.quantize_4bit is enabled (CUDA)
+
+# Human-review dashboard
+fastapi>=0.110
+uvicorn>=0.29
+
+# Optional — GStreamer/DeepStream ingest on Jetson: install PyGObject via apt
+# (python3-gi), not pip. Mock backends need none of the ML dependencies.

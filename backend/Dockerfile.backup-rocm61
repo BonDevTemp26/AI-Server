@@ -1,0 +1,40 @@
+FROM ubuntu:22.04
+
+# Prevent interactive prompts during apt installations
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+
+# Install system dependencies, Python, and ROCm repos
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    libgl1 \
+    libglib2.0-0 \
+    gcc \
+    libpq-dev \
+    ffmpeg \
+    wget \
+    gnupg2 \
+    && mkdir -p /etc/apt/keyrings \
+    && wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | tee /etc/apt/keyrings/rocm.asc \
+    && echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.asc] https://repo.radeon.com/rocm/apt/6.1/ jammy main' | tee /etc/apt/sources.list.d/rocm.list \
+    && apt-get update \
+    && apt-get install -y rocm-libs \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /opt/rocm/lib/libhipblas.so.2 /opt/rocm/lib/libhipblas.so.3 || true \
+    && ln -s /opt/rocm/lib/libamdhip64.so.6 /opt/rocm/lib/libamdhip64.so.7 || true
+
+COPY requirements.txt .
+
+RUN python3 -m pip install --no-cache-dir -r requirements.txt
+RUN python3 -m pip install --no-cache-dir torch==2.6.0+rocm6.1 torchvision==0.21.0+rocm6.1 --index-url https://download.pytorch.org/whl/rocm6.1
+
+# The location of pip installations can vary, we use find to safely symlink
+RUN find /usr/local/lib/python3.10 -path "*/torch/lib/*.so" -exec ln -sf {} /usr/lib/x86_64-linux-gnu/ \; || true; \
+    ln -sf /usr/lib/x86_64-linux-gnu/librocm_smi64.so /usr/lib/x86_64-linux-gnu/librocm_smi64.so.1 || true; \
+    ln -sf /usr/lib/x86_64-linux-gnu/libroctracer64.so /usr/lib/x86_64-linux-gnu/libroctracer64.so.4 || true
+
+COPY . .
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

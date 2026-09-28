@@ -1,0 +1,128 @@
+import threading
+import traceback
+import sys
+import os
+from pathlib import Path
+import time
+from datetime import datetime
+
+# Pointing to the self-contained theft workflow directory inside AI-Server
+THEFT_APP_DIR = Path(__file__).resolve().parent.parent / "cctv_theft_app"
+if str(THEFT_APP_DIR) not in sys.path:
+    sys.path.insert(0, str(THEFT_APP_DIR))
+
+import yaml
+from app.database import SessionLocal
+from app.models.all_models import DetectionEvent, Camera, Shop
+
+class TheftWorker(threading.Thread):
+    def __init__(self, camera_id: int):
+        super().__init__()
+        self.camera_id = camera_id
+        self.running = False
+        self.error_msg = None
+        self.orchestrator = None
+
+    def stop(self):
+        self.running = False
+        if self.orchestrator:
+            self.orchestrator._stop.set()
+
+    def run(self):
+        self.running = True
+        db = SessionLocal()
+        cwd = os.getcwd()
+        try:
+            camera = db.query(Camera).filter(Camera.id == self.camera_id).first()
+            if not camera:
+                self.error_msg = "Camera not found"
+                return
+
+            shop = db.query(Shop).filter(Shop.id == camera.shop_id).first()
+            shop_name = shop.name if shop else "Unknown"
+            db.close()
+            db = None
+            
+            # Need to delay import because pipeline relies on specific working directory for loading yaml
+            os.chdir(str(THEFT_APP_DIR))
+            from pipeline.orchestrator import PipelineOrchestrator
+
+            config_path = THEFT_APP_DIR / "configs" / "app.yaml"
+            with open(config_path, "r") as f:
+                cfg = yaml.safe_load(f)
+
+            # Dynamically register camera with MediaMTX
+            import requests
+            try:
+                mediamtx_url = f"http://mediamtx:9997/v3/config/paths/add/cam_{self.camera_id}"
+                payload = {"source": camera.rtsp_url, "sourceOnDemand": True}
+                requests.post(mediamtx_url, json=payload, auth=("admin", "admin"), timeout=5)
+                time.sleep(2)  # Allow MediaMTX to establish the connection
+            except Exception as e:
+                print(f"Failed to register camera {self.camera_id} with MediaMTX: {e}")
+
+            cfg["cameras"] = [{
+                "id": f"cam_{self.camera_id}",
+                "source": f"rtsp://admin:admin@mediamtx:8554/cam_{self.camera_id}",
+                "loop": False
+            }]
+            
+            # Ensure clip extraction works correctly inside AI-Server uploads
+            cfg.setdefault("paths", {})
+            cfg["paths"]["clips_dir"] = "/app/uploads/clips"
+            os.makedirs("/app/uploads/clips", exist_ok=True)
+            
+            # Use real models as configured in the user's app.yaml (no mock overrides)
+            self.orchestrator = PipelineOrchestrator(cfg)
+            
+            # Intercept alerts to update our backend DB
+            original_dispatch = self.orchestrator.alert_manager.dispatch
+            
+            def custom_dispatch(event, result, clip_path):
+                ev_db = None
+                try:
+                    ev_db = SessionLocal()
+                    # We are dispatching a confirmed theft event
+                    rel_video_path = f"/api/uploads/clips/{Path(clip_path).name}" if clip_path else None
+                    new_event = DetectionEvent(
+                        camera_id=self.camera_id,
+                        shop_id=camera.shop_id,
+                        shop_name=shop_name,
+                        camera_name=camera.name,
+                        detection_type="theft",
+                        confidence=result.confidence,
+                        metadata_={
+                            "video_path": rel_video_path,
+                            "verdict": result.verdict,
+                            "description": result.description,
+                            "vlm_content": result.description,
+                            "vlm_reject_score": result.confidence
+                        }
+                    )
+                    ev_db.add(new_event)
+                    ev_db.commit()
+                    ev_db.refresh(new_event)
+                    # End event immediately for standard alerts
+                    new_event.ended_at = datetime.utcnow()
+                    ev_db.commit()
+                except Exception as e:
+                    if ev_db is not None:
+                        ev_db.rollback()
+                    print("Error saving theft event to DB", e)
+                finally:
+                    if ev_db is not None:
+                        ev_db.close()
+                original_dispatch(event, result, clip_path)
+                
+            self.orchestrator.alert_manager.dispatch = custom_dispatch
+            
+            # Run the orchestrator pipeline
+            self.orchestrator.run()
+        except Exception as e:
+            self.error_msg = str(e)
+            print(f"TheftWorker {self.camera_id} crashed: {traceback.format_exc()}")
+        finally:
+            os.chdir(cwd)
+            if db is not None:
+                db.close()
+            self.running = False
