@@ -70,8 +70,32 @@ cd YourProjectRepo
 This project uses **Docker** and **Docker Compose** to easily spin up all services (Frontend, Backend, Database, and MediaMTX) simultaneously. 
 
 ### Prerequisites
-- [Docker](https://docs.docker.com/get-docker/) installed
-- [Docker Compose](https://docs.docker.com/compose/install/) installed
+
+If you don't have Docker and Docker Compose installed on your Ubuntu machine, you can install them by running the following commands in your terminal:
+
+```bash
+# Add Docker's official GPG key:
+sudo apt-get update
+sudo apt-get install ca-certificates curl -y
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources:
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+
+# Install Docker and Docker Compose plugin
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+
+# Add your user to the docker group so you don't need to use sudo every time
+sudo usermod -aG docker $USER
+# You will need to log out and log back in, or run `newgrp docker` for this to take effect.
+```
+
 - (Optional) NVIDIA or AMD GPUs configured for Docker if you are using GPU acceleration for AI models.
 
 ### Step-by-Step Execution
